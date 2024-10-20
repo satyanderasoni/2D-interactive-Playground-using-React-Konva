@@ -1,32 +1,15 @@
-import LeftSidebar from './components/LeftSidebar';
-import RightSidebar from './components/RightSidebar';
-import GridStage from './components/GridStage';
-import { useState } from 'react';
-import './App.css';
+  import FloorplanEditor from "./components/FloorplanEditor";
 
-function App() {
-  const [shapes, setShapes] = useState([]);
+  import './App.css';
 
-  const handleAddShape = (shapeType) => {
-    const newShape = { 
-      id: `${shapeType}-${Date.now()}`, 
-      type: shapeType, 
-      x: 50, // Initial x position
-      y: 50, // Initial y position
-      size: 50 // Size can be adjusted based on shape type
-    };
-    setShapes((prevShapes) => [...prevShapes, newShape]);
-  };
+  function App() {
 
-  return (
-    <div className="flex h-screen p-4 gap-4">
-      <LeftSidebar onAddShape={handleAddShape} />
-      <div className="flex-grow">
-        <GridStage shapes={shapes} />
+    return (
+
+      <div>
+        <FloorplanEditor />
       </div>
-      <RightSidebar />
-    </div>
-  );
-}
+    );
+  }
 
-export default App;
+  export default App;
