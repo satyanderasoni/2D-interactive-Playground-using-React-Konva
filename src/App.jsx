@@ -8,7 +8,7 @@
 
       <div>
         <FloorplanEditor />
-        <p>hey there</p>
+    
       </div>
     );
   }
