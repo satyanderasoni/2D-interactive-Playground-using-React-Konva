@@ -31,6 +31,8 @@ function FloorplanEditor() {
     setShapes((prevShapes) => [...prevShapes, newShape]);
   };
 
+
+
   return (
     <div className="flex h-screen p-4 gap-4">
       {/* Left Sidebar */}
@@ -96,7 +98,8 @@ function FloorplanEditor() {
             <h2 className="text-lg font-semibold text-center">Floorplan Canvas</h2>
           </CardHeader>
           <CardContent className="border-2 border-dashed border-gray-400">
-            <Stage width={900} height={640} ref={stageRef}>
+            <Stage 
+              width={900} height={640} ref={stageRef}>
               <Layer>
                 {shapes.map((shape) => {
                   switch (shape.type) {
