@@ -15,6 +15,11 @@ import { Label } from "@/components/ui/label";
 function FloorplanEditor() {
   const [shapes, setShapes] = useState([]);
   const stageRef = useRef(null);
+  const [color , setColor] = useState("#2f2f2f");
+
+  const handleColorChange = (event) => {
+    setColor(event.target.value); // Update the state with the new color
+  };
 
   const handleAddShape = (shapeType) => {
     const newShape = {
@@ -91,7 +96,7 @@ function FloorplanEditor() {
             <h2 className="text-lg font-semibold text-center">Floorplan Canvas</h2>
           </CardHeader>
           <CardContent className="border-2 border-dashed border-gray-400">
-            <Stage width={620} height={640} ref={stageRef}>
+            <Stage width={900} height={640} ref={stageRef}>
               <Layer>
                 {shapes.map((shape) => {
                   switch (shape.type) {
@@ -105,6 +110,7 @@ function FloorplanEditor() {
                           height={100}
                           stroke="black"
                           strokeWidth={2}
+                          fill={color}
                           draggable
                         />
                       );
@@ -167,7 +173,11 @@ function FloorplanEditor() {
                 <AccordionContent className="grid grid-cols-3 gap-2">
                   <div>
                     <Label className="block mb-1">Color</Label>
-                    <Input type="color" />
+                    <Input 
+                            type="color" 
+                            value={color} 
+                            onChange={handleColorChange} 
+                    />
                   </div>
                   <div>
                     <Label className="block mb-1">Width</Label>
