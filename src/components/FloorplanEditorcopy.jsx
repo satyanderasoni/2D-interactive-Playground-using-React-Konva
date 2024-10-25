@@ -1,14 +1,7 @@
 import { useRef, useState } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { ACTIONS } from "./constants";
-import {
-  Stage,
-  Layer,
-  Rect,
-  Circle,
-  Transformer,
-  Arrow,
-} from "react-konva";
+import { Stage, Layer, Rect, Circle, Transformer, Arrow,  } from "react-konva";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import {
   Accordion,
@@ -28,68 +21,68 @@ function FloorplanEditorCopy() {
   const [squares, setSquares] = useState([]);
   const [circles, setCircles] = useState([]);
   const [arrows, setArrows] = useState([]);
+  
 
   const strokeColor = "#000";
   const isPainting = useRef();
   const currentShapeId = useRef();
   const transformerRef = useRef();
 
+
   const isDraggable = action === ACTIONS.SELECT;
-
-
 
   const handleColorChange = (event) => {
     setColor(event.target.value); // Update the state with the new color
   };
 
   function onPointerDown() {
-  if (action === ACTIONS.SELECT) return;
+    if (action === ACTIONS.SELECT) return;
 
-  const stage = stageRef.current;
-  const { x, y } = stage.getPointerPosition();
-  const id = uuidv4();
+    const stage = stageRef.current;
+    const { x, y } = stage.getPointerPosition();
+    const id = uuidv4();
 
-  currentShapeId.current = id;
-  isPainting.current = true;
+    currentShapeId.current = id;
+    isPainting.current = true;
 
-  switch (action) {
-    case ACTIONS.SQUARE:
-      setSquares((squares) => [
-        ...squares,
-        {
-          id,
-          x,
-          y,
-          height: 20,
-          width: 20,
-          color,
-        },
-      ]);
-      break;
-    case ACTIONS.CIRCLE:
-      setCircles((circles) => [
-        ...circles,
-        {
-          id,
-          x,
-          y,
-          radius: 20,
-          color,
-        },
-      ]);
-      break;
+    switch (action) {
+      case ACTIONS.SQUARE:
+        setSquares((squares) => [
+          ...squares,
+          {
+            id,
+            x,
+            y,
+            height: 20,
+            width: 20,
+            color,
+          },
+        ]);
+        break;
+      case ACTIONS.CIRCLE:
+        setCircles((circles) => [
+          ...circles,
+          {
+            id,
+            x,
+            y,
+            radius: 20,
+            color,
+          },
+        ]);
+        break;
 
-    case ACTIONS.ARROW:
-      setArrows((arrows) => [
-        ...arrows,
-        {
-          id,
-          points: [x, y, x + 20, y + 20],
-          color,
-        },
-      ]);
-      break;
-}
+      case ACTIONS.ARROW:
+        setArrows((arrows) => [
+          ...arrows,
+          {
+            id,
+            points: [x, y, x + 20, y + 20],
+            color,
+          },
+        ]);
+        break;
+    }
   }
 
   function onPointerMove() {
@@ -110,7 +103,7 @@ function FloorplanEditorCopy() {
               };
             }
             return square;
-          })
+          }),
         );
         break;
       case ACTIONS.CIRCLE:
@@ -123,7 +116,7 @@ function FloorplanEditorCopy() {
               };
             }
             return circle;
-          })
+          }),
         );
         break;
       case ACTIONS.ARROW:
@@ -136,19 +129,35 @@ function FloorplanEditorCopy() {
               };
             }
             return arrow;
-          })
+          }),
         );
         break;
+    }
   }
-  }
-
 
   function onPointerUp() {
     isPainting.current = false;
     console.log("drawing");
-    
+  
+    const stage = stageRef.current;
+    const shape = stage.findOne(
+      (node) => node.id() === currentShapeId.current
+    );
+  
+    if (shape) {
+      transformerRef.current.nodes([shape]); // Select the shape
+      stage.batchDraw(); // Redraw the stage
+      setAction(ACTIONS.SELECT);
+    } if(stage) {
+      // If no shape is found, deselect any selected shape
+      transformerRef.current.nodes([]); // Clear the selection
+      stage.batchDraw(); // Redraw the stage
+      console.log("No shape found, selection cleared");
+    }
+  
+    console.log("Shape drawn and selected");
+  
   }
-
 
   function handleExport() {
     const uri = stageRef.current.toDataURL();
@@ -164,18 +173,38 @@ function FloorplanEditorCopy() {
     if (action !== ACTIONS.SELECT) return;
     const target = e.currentTarget;
     transformerRef.current.nodes([target]);
+    console.log("shape selected");
+    
   }
 
-  function onStageClick(e) {
-    // Check if the click is on the stage (empty space)
-    if (e.target === e.target.getStage()) {
-      setAction(ACTIONS.SELECT);
-      transformerRef.current.nodes([]);
-      isPainting.current = false;
-      console.log("drawing stopped");
-      
-    }
-  }
+const handleTextInput = (shape, stageRef, inputRef) => {
+  const stageBox = stageRef.current.container().getBoundingClientRect();
+
+  // Get the shape's position on the canvas
+  const { x, y } = shape.getAbsolutePosition();
+
+  // Set input position based on shape's position and canvas offset
+  inputRef.current.style.top = `${stageBox.top + y}px`;
+  inputRef.current.style.left = `${stageBox.left + x}px`;
+  inputRef.current.style.width = `${shape.width()}px`;
+  inputRef.current.style.height = `${shape.height()}px`;
+  inputRef.current.style.display = 'block';
+  inputRef.current.value = shape.text() || '';
+  inputRef.current.focus();
+
+  // Handle Enter or Blur to save input
+  const saveText = () => {
+    shape.text(inputRef.current.value);
+    inputRef.current.style.display = 'none';
+  };
+
+  inputRef.current.addEventListener('blur', saveText);
+  inputRef.current.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') saveText();
+  });
+};
+
+
 
   return (
     <div className="flex h-screen p-4 gap-4">
@@ -208,9 +237,9 @@ function FloorplanEditorCopy() {
                   >
                     <Icons.Triangle size={24} />
                   </Button>
-                  <Button 
-                  variant="outline"
-                  onClick={() => setAction(ACTIONS.ARROW)}
+                  <Button
+                    variant="outline"
+                    onClick={() => setAction(ACTIONS.ARROW)}
                   >
                     <Icons.ArrowUp size={24} />
                   </Button>
@@ -250,7 +279,6 @@ function FloorplanEditorCopy() {
               onPointerDown={onPointerDown}
               onPointerMove={onPointerMove}
               onPointerUp={onPointerUp}
-              onClick={onStageClick}
             >
               <Layer>
                 {/* <Rect
@@ -268,6 +296,7 @@ function FloorplanEditorCopy() {
                 {squares.map((square) => (
                   <Rect
                     key={square.id}
+                    id={square.id}
                     x={square.x}
                     y={square.y}
                     stroke={strokeColor}
@@ -277,12 +306,14 @@ function FloorplanEditorCopy() {
                     width={square.width}
                     draggable={isDraggable}
                     onClick={onClick}
+                    onDblClick={handleTextInput}
                   />
                 ))}
 
                 {circles.map((circle) => (
                   <Circle
                     key={circle.id}
+                    id={circle.id}
                     radius={circle.radius}
                     x={circle.x}
                     y={circle.y}
@@ -296,6 +327,7 @@ function FloorplanEditorCopy() {
                 {arrows.map((arrow) => (
                   <Arrow
                     key={arrow.id}
+                    id={arrow.id}
                     points={arrow.points}
                     stroke={strokeColor}
                     strokeWidth={2}
@@ -357,9 +389,6 @@ function FloorplanEditorCopy() {
       </div>
     </div>
   );
-
-
-
 }
 
 export default FloorplanEditorCopy;
