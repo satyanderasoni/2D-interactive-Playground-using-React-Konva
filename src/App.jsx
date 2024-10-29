@@ -1,4 +1,3 @@
-  import FloorplanEditor from "./components/FloorplanEditor";
   import FloorplanEditorCopy from "./components/FloorplanEditorcopy";
   import './App.css';
 
@@ -8,8 +7,6 @@
 
       <>
       <div>
-        <FloorplanEditor />
-      </div><div>
           <FloorplanEditorCopy />
         </div>
         </>
