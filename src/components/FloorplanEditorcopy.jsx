@@ -1,7 +1,15 @@
 import { useRef, useState } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { ACTIONS } from "./constants";
-import { Stage, Layer, Rect, Circle, Transformer, Arrow,  } from "react-konva";
+import {
+  Stage,
+  Layer,
+  Rect,
+  Circle,
+  Transformer,
+  Arrow,
+  Text,
+} from "react-konva";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import {
   Accordion,
@@ -21,18 +29,19 @@ function FloorplanEditorCopy() {
   const [squares, setSquares] = useState([]);
   const [circles, setCircles] = useState([]);
   const [arrows, setArrows] = useState([]);
-  
+  const [textBoxes, setTextBoxes] = useState([]);
+  // eslint-disable-next-line no-unused-vars
+  const [selectedTextBox, setSelectedTextBox] = useState();
 
   const strokeColor = "#000";
   const isPainting = useRef();
   const currentShapeId = useRef();
   const transformerRef = useRef();
 
-
   const isDraggable = action === ACTIONS.SELECT;
 
-  const handleColorChange = (event) => {
-    setColor(event.target.value); // Update the state with the new color
+  const handleColorChange = (e) => {
+    setColor(e.target.value);
   };
 
   function onPointerDown() {
@@ -92,6 +101,20 @@ function FloorplanEditorCopy() {
     const { x, y } = stage.getPointerPosition();
 
     switch (action) {
+      case ACTIONS.TEXT:
+        setSquares((text) =>
+          text.map((text) => {
+            if (text.id === currentShapeId.current) {
+              return {
+                ...text,
+                width: x - text.x,
+                height: y - text.y,
+              };
+            }
+            return text;
+          }),
+        );
+        break;
       case ACTIONS.SQUARE:
         setSquares((squares) =>
           squares.map((square) => {
@@ -138,25 +161,24 @@ function FloorplanEditorCopy() {
   function onPointerUp() {
     isPainting.current = false;
     console.log("drawing");
-  
+
     const stage = stageRef.current;
-    const shape = stage.findOne(
-      (node) => node.id() === currentShapeId.current
-    );
-  
+    const shape = stage.findOne((node) => node.id() === currentShapeId.current);
+
     if (shape) {
       transformerRef.current.nodes([shape]); // Select the shape
       stage.batchDraw(); // Redraw the stage
       setAction(ACTIONS.SELECT);
-    } if(stage) {
-      // If no shape is found, deselect any selected shape
+    }
+    if (stage) {
       transformerRef.current.nodes([]); // Clear the selection
       stage.batchDraw(); // Redraw the stage
       console.log("No shape found, selection cleared");
     }
-  
-    console.log("Shape drawn and selected");
-  
+    if (!shape) {
+      transformerRef.current.nodes([]); // Clear selection.
+      console.log("No shape found, selection cleared");
+    }
   }
 
   function handleExport() {
@@ -174,37 +196,65 @@ function FloorplanEditorCopy() {
     const target = e.currentTarget;
     transformerRef.current.nodes([target]);
     console.log("shape selected");
-    
   }
 
-const handleTextInput = (shape, stageRef, inputRef) => {
-  const stageBox = stageRef.current.container().getBoundingClientRect();
+  // Update the text button click handler
+  const onAddText = () => {
+    const stage = stageRef.current;
+    // eslint-disable-next-line no-unused-vars
+    const { x, y } = stage.getPointerPosition();
+    const id = uuidv4();
 
-  // Get the shape's position on the canvas
-  const { x, y } = shape.getAbsolutePosition();
-
-  // Set input position based on shape's position and canvas offset
-  inputRef.current.style.top = `${stageBox.top + y}px`;
-  inputRef.current.style.left = `${stageBox.left + x}px`;
-  inputRef.current.style.width = `${shape.width()}px`;
-  inputRef.current.style.height = `${shape.height()}px`;
-  inputRef.current.style.display = 'block';
-  inputRef.current.value = shape.text() || '';
-  inputRef.current.focus();
-
-  // Handle Enter or Blur to save input
-  const saveText = () => {
-    shape.text(inputRef.current.value);
-    inputRef.current.style.display = 'none';
+    setTextBoxes((prevText) => [
+      ...prevText,
+      { id, x: 20, y: 50, text: "Enter Text", fontSize: 24, fontFamily: "sans serif" },
+    ]);
+    console.log("text added");
+    
   };
 
-  inputRef.current.addEventListener('blur', saveText);
-  inputRef.current.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') saveText();
-  });
-};
+  const handleTextDragEnd = (e, id) => {
+    const newText = textBoxes.map((textBox) => {
+      if (textBox.id === id) {
+        return { ...textBox, x: e.target.x(), y: e.target.y() };
+      }
+      return textBox;
+    });
+    setTextBoxes(newText);
+  };
 
+  const handleTextDblClick = (e, id) => {
+    const textBox = textBoxes.find((textBox) => textBox.id === id);
+    if (textBox) {
+      const input = document.createElement("input");
+      input.value = textBox.text;
+      input.style.position = "absolute";
+      input.style.top = e.target.getAbsolutePosition().y + "px";
+      input.style.left = e.target.getAbsolutePosition().x + "px";
+      input.style.width = "200px";
+      input.style.height = "30px";
+      input.style.fontSize = "18px";
+      input.style.padding = "10px";
+      input.style.border = "1px solid #ccc";
+      input.style.borderRadius = "5px";
+      input.style.boxShadow = "0 0 10px rgba(0, 0, 0, 0.2)";
+      document.body.appendChild(input);
+      input.focus();
+      input.select();
 
+      const handleInputBlur = () => {
+        const newText = textBoxes.map((textBox) => {
+          if (textBox.id === id) {
+            return { ...textBox, text: input.value };
+          }
+          return textBox;
+        });
+        setTextBoxes(newText);
+        document.body.removeChild(input);
+      };
+      input.addEventListener("blur", handleInputBlur);
+    }
+  };
 
   return (
     <div className="flex h-screen p-4 gap-4">
@@ -233,12 +283,6 @@ const handleTextInput = (shape, stageRef, inputRef) => {
                   </Button>
                   <Button
                     variant="outline"
-                    // onClick={() => handleAddShape("triangle")}
-                  >
-                    <Icons.Triangle size={24} />
-                  </Button>
-                  <Button
-                    variant="outline"
                     onClick={() => setAction(ACTIONS.ARROW)}
                   >
                     <Icons.ArrowUp size={24} />
@@ -250,10 +294,7 @@ const handleTextInput = (shape, stageRef, inputRef) => {
               <AccordionItem value="item-1">
                 <AccordionTrigger>Text</AccordionTrigger>
                 <AccordionContent className="grid grid-cols-3 gap-2">
-                  <Button
-                    variant="outline"
-                    // onClick={() => handleAddShape("text")}
-                  >
+                  <Button variant="outline" onClick={() => onAddText()}>
                     <Icons.Type size={24} />
                   </Button>
                 </AccordionContent>
@@ -265,80 +306,86 @@ const handleTextInput = (shape, stageRef, inputRef) => {
 
       {/* Canvas/Stage */}
       <div className="flex-grow">
-        <Card className="w-620 h-877">
+        <Card className="w-full">
           <CardHeader>
             <h2 className="text-lg font-semibold text-center">
               Floorplan Canvas
             </h2>
           </CardHeader>
           <CardContent className="border-2 border-dashed border-gray-400">
-            <Stage
-              width={900}
-              height={640}
-              ref={stageRef}
-              onPointerDown={onPointerDown}
-              onPointerMove={onPointerMove}
-              onPointerUp={onPointerUp}
-            >
-              <Layer>
-                {/* <Rect
-                  x={0}
-                  y={0}
-                  height={window.innerHeight}
-                  width={window.innerWidth}
-                  fill="#ffffff"
-                  id="bg"
-                  onClick={() => {
-                    transformerRef.current.nodes([]);
-                  }}
-                /> */}
+            <div>
+              <Stage
+                width={950}
+                height={630}
+                ref={stageRef}
+                onPointerDown={onPointerDown}
+                onPointerMove={onPointerMove}
+                onPointerUp={onPointerUp}
+              >
+                <Layer>
+                  {textBoxes.map((textBox) => (
+                    <Text
+                      key={textBox.id}
+                      x={textBox.x}
+                      y={textBox.y}
+                      fontSize={textBox.fontSize}
+                      text={textBox.text}
+                      fill={color}
+                      draggable={isDraggable}
+                      onClick={onClick}
+                      onTap={() => setSelectedTextBox(textBox)}
+                      onDblClick={(e) => handleTextDblClick(e, textBox.id)}
+                      onDragEnd={(e) => handleTextDragEnd(e, textBox.id)}
+                      keepRatio={true}
+                    />
+                  ))}
 
-                {squares.map((square) => (
-                  <Rect
-                    key={square.id}
-                    id={square.id}
-                    x={square.x}
-                    y={square.y}
-                    stroke={strokeColor}
-                    strokeWidth={2}
-                    fill={square.color}
-                    height={square.height}
-                    width={square.width}
-                    draggable={isDraggable}
-                    onClick={onClick}
-                    onDblClick={handleTextInput}
-                  />
-                ))}
+                  {squares.map((square) => (
+                    <Rect
+                      key={square.id}
+                      id={square.id}
+                      x={square.x}
+                      y={square.y}
+                      stroke={strokeColor}
+                      strokeWidth={2}
+                      fill={square.color}
+                      height={square.height}
+                      width={square.width}
+                      draggable={isDraggable}
+                      onClick={onClick}
+                    />
+                  ))}
 
-                {circles.map((circle) => (
-                  <Circle
-                    key={circle.id}
-                    id={circle.id}
-                    radius={circle.radius}
-                    x={circle.x}
-                    y={circle.y}
-                    stroke={strokeColor}
-                    strokeWidth={2}
-                    fill={circle.color}
-                    draggable={isDraggable}
-                    onClick={onClick}
-                  />
-                ))}
-                {arrows.map((arrow) => (
-                  <Arrow
-                    key={arrow.id}
-                    id={arrow.id}
-                    points={arrow.points}
-                    stroke={strokeColor}
-                    strokeWidth={2}
-                    fill={arrow.color}
-                    draggable={isDraggable}
-                    onClick={onClick}
-                  />
-                ))}
-                <Transformer ref={transformerRef} />
-              </Layer>
-            </Stage>
+                  {circles.map((circle) => (
+                    <Circle
+                      key={circle.id}
+                      id={circle.id}
+                      radius={circle.radius}
+                      x={circle.x}
+                      y={circle.y}
+                      stroke={strokeColor}
+                      strokeWidth={2}
+                      fill={circle.color}
+                      draggable={isDraggable}
+                      onClick={onClick}
+                    />
+                  ))}
+                  {arrows.map((arrow) => (
+                    <Arrow
+                      key={arrow.id}
+                      id={arrow.id}
+                      points={arrow.points}
+                      stroke={strokeColor}
+                      strokeWidth={2}
+                      fill={arrow.color}
+                      draggable={isDraggable}
+                      onClick={onClick}
+                    />
+                  ))}
+                  <Transformer ref={transformerRef} />
+                </Layer>
+              </Stage>
+            </div>
           </CardContent>
         </Card>
       </div>
