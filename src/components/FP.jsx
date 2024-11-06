@@ -22,7 +22,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "./ui/input";
 import { Label } from "@/components/ui/label";
 
-function FloorplanEditorCopy() {
+
+function FP() {
   const stageRef = useRef(null);
   const [color, setColor] = useState("#2f2f2f");
   const [action, setAction] = useState(ACTIONS.SELECT);
@@ -30,8 +31,7 @@ function FloorplanEditorCopy() {
   const [circles, setCircles] = useState([]);
   const [arrows, setArrows] = useState([]);
   const [textBoxes, setTextBoxes] = useState([]);
-  // eslint-disable-next-line no-unused-vars
-  const [selectedTextBox, setSelectedTextBox] = useState();
+  //   const [selectedTextBox, setSelectedTextBox] = useState();
 
   const strokeColor = "#000";
   const isPainting = useRef();
@@ -44,63 +44,12 @@ function FloorplanEditorCopy() {
     setColor(e.target.value);
   };
 
-  function onPointerDown() {
-    if (action === ACTIONS.SELECT) return;
-
-    const stage = stageRef.current;
-    const { x, y } = stage.getPointerPosition();
-    const id = uuidv4();
-
-    currentShapeId.current = id;
-    isPainting.current = true;
-    switch (action) {
-      case ACTIONS.SQUARE:
-        setSquares((squares) => [
-          ...squares,
-          {
-            id,
-            x,
-            y,
-            height: 20,
-            width: 20,
-            color,
-          },
-        ]);
-        break;
-      case ACTIONS.CIRCLE:
-        setCircles((circles) => [
-          ...circles,
-          {
-            id,
-            x,
-            y,
-            radius: 20,
-            color,
-          },
-        ]);
-        break;
-
-      case ACTIONS.ARROW:
-        setArrows((arrows) => [
-          ...arrows,
-          {
-            id,
-            points: [x, y, x + 20, y + 20],
-            color,
-          },
-        ]);
-        break;
-    }
-    console.log("shape added");
-  }
-
-  function onPointerMove() {
+  function handleShapeUpdate() {
     if (action === ACTIONS.SELECT || !isPainting.current) return;
 
     const stage = stageRef.current;
     const { x, y } = stage.getPointerPosition();
-    
-
+    console.log("handleShapeUpdate");
     switch (action) {
       case ACTIONS.SQUARE:
         setSquares((squares) =>
@@ -143,30 +92,31 @@ function FloorplanEditorCopy() {
         );
         break;
     }
-    console.log("onPointerMove");
+    console.log("handleShapeUpdate");
   }
 
-  function onPointerUp(event) {
+  function isSketching(event) {
     isPainting.current = false;
     console.log("not drawing");
-  
+
     const stage = stageRef.current;
     const targetNode = event.target;
-  
+
     if (targetNode === stage) {
       // If the click event is targeting the stage (i.e., empty space), clear the selection
       transformerRef.current.nodes([]); // Clear selection
       stage.batchDraw(); // Redraw the stage
       console.log("Selection cleared");
     } else {
-      const shape = stage.findOne((node) => node.id() === currentShapeId.current);
+      const shape = stage.findOne(
+        (node) => node.id() === currentShapeId.current,
+      );
       if (shape) {
         transformerRef.current.nodes([shape]); // Select the shape
         stage.batchDraw(); // Redraw the stage
         setAction(ACTIONS.SELECT);
       }
     }
-    console.log("onPointerUp");
   }
 
   function handleExport() {
@@ -183,29 +133,102 @@ function FloorplanEditorCopy() {
     if (action !== ACTIONS.SELECT) return;
     const selectedNode = event.currentTarget;
     transformerRef.current.nodes([selectedNode]);
-    console.log("handleShapeSelection"+ selectedNode.id());
+    console.log("handleShapeSelection");
   }
 
   // Update the text button click handler
-  const onAddText = () => {
+  //   const onAddText = () => {
+  //     const stage = stageRef.current;
+  //     const { x, y } = stage.getPointerPosition();
+  //     const id = uuidv4();
+
+  //     setTextBoxes((prevText) => [
+  //       ...prevText,
+  //       { id, x, y, text: "Enter Text", fontSize:24 },
+  //     ]);
+  //   };
+
+  function onAddShape(shapeType) {
     const stage = stageRef.current;
-    const { x, y } = stage.getPointerPosition();
+    const { x, y } = stage.getPointerPosition() || { x: 50, y: 20 };
     const id = uuidv4();
 
-    setTextBoxes((prevText) => [
-      ...prevText,
-      { id, x, y, text: "Enter Text", fontSize:24 },
-    ]);
-  };
+    switch (shapeType) {
+      case "square":
+        setSquares((prevSquares) => [
+          ...prevSquares,
+          { id, x, y, height: 80, width: 80, color: color },
+        ]);
+        break;
+      case "circle":
+        setCircles((prevCircles) => [
+          ...prevCircles,
+          { id, x, y, radius: 50, color: color },
+        ]);
+        break;
+      case "arrow":
+        setArrows((prevArrows) => [
+          ...prevArrows,
+          { id, points: [x, y, x + 40, y + 80], color: color },
+        ]);
+        break;
+      case "textBox":
+        setTextBoxes((prevText) => [
+          ...prevText,
+          { id, x, y, text: "Enter Text", fontSize: 24 },
+        ]);
+        break;
+      default:
+        console.warn(`Unknown shape type: ${shapeType}`);
+        break;
+    }
+  }
 
-  const handleTextDragEnd = (e, id) => {
-    const newText = textBoxes.map((textBox) => {
-      if (textBox.id === id) {
-        return { ...textBox, x: e.target.x(), y: e.target.y() };
+  const handleDragEnd = (e, id, shapeType) => {
+    switch (shapeType) {
+      case "textBox": {
+        const newText = textBoxes.map((textBox) => {
+          if (textBox.id === id) {
+            return { ...textBox, x: e.target.x(), y: e.target.y() };
+          }
+          return textBox;
+        });
+        setTextBoxes(newText);
+        break;
       }
-      return textBox;
-    });
-    setTextBoxes(newText);
+      case "square": {
+        const newSquares = squares.map((square) => {
+          if (square.id === id) {
+            return { ...square, x: e.target.x(), y: e.target.y() };
+          }
+          return square;
+        });
+        setSquares(newSquares);
+        break;
+      }
+      case "circle": {
+        const newCircles = circles.map((circle) => {
+          if (circle.id === id) {
+            return { ...circle, x: e.target.x(), y: e.target.y() };
+          }
+          return circle;
+        });
+        setCircles(newCircles);
+        break;
+      }
+      case "arrow": {
+        const newArrows = arrows.map((arrow) => {
+          if (arrow.id === id) {
+            return { ...arrow, x: e.target.x(), y: e.target.y() };
+          }
+          return arrow;
+        });
+        setArrows(newArrows);
+        break;
+      }
+      default:
+        break;
+    }
   };
 
   const handleTextDblClick = (e, id) => {
@@ -256,20 +279,17 @@ function FloorplanEditorCopy() {
                 <AccordionContent className="grid grid-cols-3 gap-2">
                   <Button
                     variant="outline"
-                    onClick={() => setAction(ACTIONS.SQUARE)}
+                    onClick={() => onAddShape("square")}
                   >
                     <Icons.SquareIcon size={24} />
                   </Button>
                   <Button
                     variant="outline"
-                    onClick={() => setAction(ACTIONS.CIRCLE)}
+                    onClick={() => onAddShape("circle")}
                   >
                     <Icons.Circle size={24} />
                   </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => setAction(ACTIONS.ARROW)}
-                  >
+                  <Button variant="outline" onClick={() => onAddShape("arrow")}>
                     <Icons.ArrowUp size={24} />
                   </Button>
                 </AccordionContent>
@@ -279,7 +299,10 @@ function FloorplanEditorCopy() {
               <AccordionItem value="item-1">
                 <AccordionTrigger>Text</AccordionTrigger>
                 <AccordionContent className="grid grid-cols-3 gap-2">
-                  <Button variant="outline" onClick={() => onAddText()}>
+                  <Button
+                    variant="outline"
+                    onClick={() => onAddShape("textBox")}
+                  >
                     <Icons.Type size={24} />
                   </Button>
                 </AccordionContent>
@@ -303,9 +326,9 @@ function FloorplanEditorCopy() {
                 width={950}
                 height={630}
                 ref={stageRef}
-                onPointerDown={onPointerDown}
-                onPointerMove={onPointerMove}
-                onPointerUp={onPointerUp}
+                // onPointerDown={onPointerDown}
+                onDragMove={handleShapeUpdate}
+                onPointerUp={isSketching}
               >
                 <Layer>
                   {textBoxes.map((textBox) => (
@@ -318,10 +341,10 @@ function FloorplanEditorCopy() {
                       fill={color}
                       draggable={isDraggable}
                       onClick={handleShapeSelection}
-                      onTap={() => setSelectedTextBox(textBox)}
                       onDblClick={(e) => handleTextDblClick(e, textBox.id)}
-                      onDragEnd={(e) => handleTextDragEnd(e, textBox.id)}
+                      onDragEnd={(e) => handleDragEnd(e, textBox.id, "textBox")}
                       keepRatio={true}
+                      centeredScaling={true}
                     />
                   ))}
 
@@ -331,13 +354,12 @@ function FloorplanEditorCopy() {
                       id={square.id}
                       x={square.x}
                       y={square.y}
-                      stroke={strokeColor}
-                      strokeWidth={2}
                       fill={square.color}
                       height={square.height}
                       width={square.width}
                       draggable={isDraggable}
                       onClick={handleShapeSelection}
+                      onDragEnd={(e) => handleDragEnd(e, square.id, "square")}
                     />
                   ))}
 
@@ -348,11 +370,10 @@ function FloorplanEditorCopy() {
                       radius={circle.radius}
                       x={circle.x}
                       y={circle.y}
-                      stroke={strokeColor}
-                      strokeWidth={2}
                       fill={circle.color}
                       draggable={isDraggable}
                       onClick={handleShapeSelection}
+                      onDragEnd={(e) => handleDragEnd(e, circle.id, "circle")}
                     />
                   ))}
                   {arrows.map((arrow) => (
@@ -365,9 +386,36 @@ function FloorplanEditorCopy() {
                       fill={arrow.color}
                       draggable={isDraggable}
                       onClick={handleShapeSelection}
+                      onDragEnd={(e) => handleDragEnd(e, arrow.id, "arrow")}
                     />
                   ))}
-                  <Transformer ref={transformerRef} />
+                  <Transformer
+                    ref={transformerRef}
+                    anchorCornerRadius={5}
+                    anchorStroke="black"
+                    borderStroke="black"
+                    anchorStyleFunc={(anchor) => {
+                      if (
+                        anchor.hasName("top-center") ||
+                        anchor.hasName("bottom-center") 
+                      ) {
+                        anchor.height(6);
+                        anchor.offsetY(3);
+                        anchor.width(30);
+                        anchor.offsetX(15);
+                      }
+                      if (
+                        anchor.hasName("middle-left") ||
+                        anchor.hasName("middle-right")
+                      ) {
+                        anchor.height(30);
+                        anchor.offsetY(15);
+                        anchor.width(6);
+                        anchor.offsetX(3);
+                      }
+                    }
+                  }
+                  />
                 </Layer>
               </Stage>
             </div>
@@ -423,4 +471,5 @@ function FloorplanEditorCopy() {
   );
 }
 
-export default FloorplanEditorCopy;
+// eslint-disable-next-line react-refresh/only-export-components
+export default FP;

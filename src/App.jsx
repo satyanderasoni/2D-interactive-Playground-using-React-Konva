@@ -1,13 +1,13 @@
-  import FloorplanEditorCopy from "./components/FloorplanEditorcopy";
   import './App.css';
+  import FP from "./components/FP";
 
   function App() {
 
     return (
 
       <>
-      <div>
-          <FloorplanEditorCopy />
+        <div>
+          <FP />
         </div>
         </>
     );
