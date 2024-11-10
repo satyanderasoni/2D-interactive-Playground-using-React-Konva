@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { ACTIONS } from "./constants";
 import {
@@ -21,7 +21,10 @@ import * as Icons from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "./ui/input";
 import { Label } from "@/components/ui/label";
-
+import SingleStall from "@/assets/singleStall";
+import Lstall from "@/assets/lstall";
+import DoubleStall from "@/assets/doubleStall";
+import VerticalDoubleStall from "@/assets/verticalDoubleStall";
 
 function FP() {
   const stageRef = useRef(null);
@@ -31,13 +34,15 @@ function FP() {
   const [circles, setCircles] = useState([]);
   const [arrows, setArrows] = useState([]);
   const [textBoxes, setTextBoxes] = useState([]);
-  //   const [selectedTextBox, setSelectedTextBox] = useState();
+  const [selectedTextNode, setSelectedTextNode] = useState(null);
+  const textEditingRef = useRef(null);
+  const [editingText, setEditingText] = useState(false);
+const textAreaRef = useRef(null);
 
   const strokeColor = "#000";
   const isPainting = useRef();
   const currentShapeId = useRef();
   const transformerRef = useRef();
-
   const isDraggable = action === ACTIONS.SELECT;
 
   const handleColorChange = (e) => {
@@ -49,7 +54,7 @@ function FP() {
 
     const stage = stageRef.current;
     const { x, y } = stage.getPointerPosition();
-    console.log("handleShapeUpdate");
+
     switch (action) {
       case ACTIONS.SQUARE:
         setSquares((squares) =>
@@ -92,28 +97,23 @@ function FP() {
         );
         break;
     }
-    console.log("handleShapeUpdate");
   }
 
   function isSketching(event) {
     isPainting.current = false;
-    console.log("not drawing");
-
     const stage = stageRef.current;
     const targetNode = event.target;
 
     if (targetNode === stage) {
-      // If the click event is targeting the stage (i.e., empty space), clear the selection
-      transformerRef.current.nodes([]); // Clear selection
-      stage.batchDraw(); // Redraw the stage
-      console.log("Selection cleared");
+      transformerRef.current.nodes([]);
+      stage.batchDraw();
     } else {
       const shape = stage.findOne(
         (node) => node.id() === currentShapeId.current,
       );
       if (shape) {
-        transformerRef.current.nodes([shape]); // Select the shape
-        stage.batchDraw(); // Redraw the stage
+        transformerRef.current.nodes([shape]);
+        stage.batchDraw();
         setAction(ACTIONS.SELECT);
       }
     }
@@ -133,20 +133,7 @@ function FP() {
     if (action !== ACTIONS.SELECT) return;
     const selectedNode = event.currentTarget;
     transformerRef.current.nodes([selectedNode]);
-    console.log("handleShapeSelection");
   }
-
-  // Update the text button click handler
-  //   const onAddText = () => {
-  //     const stage = stageRef.current;
-  //     const { x, y } = stage.getPointerPosition();
-  //     const id = uuidv4();
-
-  //     setTextBoxes((prevText) => [
-  //       ...prevText,
-  //       { id, x, y, text: "Enter Text", fontSize:24 },
-  //     ]);
-  //   };
 
   function onAddShape(shapeType) {
     const stage = stageRef.current;
@@ -175,7 +162,7 @@ function FP() {
       case "textBox":
         setTextBoxes((prevText) => [
           ...prevText,
-          { id, x, y, text: "Enter Text", fontSize: 24 },
+          { id, x, y, text: "Double click to edit", fontSize: 24 },
         ]);
         break;
       default:
@@ -231,43 +218,134 @@ function FP() {
     }
   };
 
-  const handleTextDblClick = (e, id) => {
-    const textBox = textBoxes.find((textBox) => textBox.id === id);
-    if (textBox) {
-      const input = document.createElement("input");
-      input.value = textBox.text;
-      input.style.position = "absolute";
-      input.style.top = e.target.getAbsolutePosition().y + "px";
-      input.style.left = e.target.getAbsolutePosition().x + "px";
-      input.style.width = "200px";
-      input.style.height = "30px";
-      input.style.fontSize = "18px";
-      input.style.padding = "10px";
-      input.style.border = "1px solid #ccc";
-      input.style.borderRadius = "5px";
-      input.style.boxShadow = "0 0 10px rgba(0, 0, 0, 0.2)";
-      document.body.appendChild(input);
-      input.focus();
-      input.select();
+// Add this new utility function
+const getTextWidth = (text, fontSize = 24) => {
+  const canvas = document.createElement('canvas');
+  const context = canvas.getContext('2d');
+  context.font = `${fontSize}px Arial`;
+  return context.measureText(text).width;
+};
 
-      const handleInputBlur = () => {
-        const newText = textBoxes.map((textBox) => {
-          if (textBox.id === id) {
-            return { ...textBox, text: input.value };
-          }
-          return textBox;
-        });
-        setTextBoxes(newText);
-        document.body.removeChild(input);
-      };
-      input.addEventListener("blur", handleInputBlur);
-    }
+// Replace your handleTextEdit function with this improved version
+const handleTextEdit = (textNode) => {
+  setSelectedTextNode(textNode);
+  setEditingText(true);
+  
+  const stage = stageRef.current;
+  const stageBox = stage.container().getBoundingClientRect();
+  const areaPosition = {
+    x: stageBox.left + textNode.absolutePosition.x,
+    y: stageBox.top + textNode.absolutePosition.y,
   };
+
+  // Calculate text width and height
+  const width = Math.max(100, getTextWidth(textNode.text, textNode.fontSize) + 20);
+  const height = Math.max(textNode.fontSize + 10, (textNode.text.split('\n').length * textNode.fontSize) + 10);
+
+  const textarea = document.createElement('textarea');
+  document.body.appendChild(textarea);
+
+  textarea.value = textNode.text;
+  textarea.style.position = 'absolute';
+  textarea.style.top = `${areaPosition.y}px`;
+  textarea.style.left = `${areaPosition.x}px`;
+  textarea.style.width = `${width}px`;
+  textarea.style.height = `${height}px`;
+  textarea.style.fontSize = `${textNode.fontSize}px`;
+  textarea.style.padding = '5px';
+  textarea.style.margin = '0px';
+  textarea.style.overflow = 'hidden';
+  textarea.style.background = 'none';
+  textarea.style.outline = 'none';
+  textarea.style.resize = 'none';
+  textarea.style.lineHeight = textNode.fontSize + 'px';
+  textarea.style.fontFamily = 'Arial';
+  textarea.style.zIndex = '1000';
+  textarea.style.minHeight = '50px';
+  textarea.style.color = color;
+  textarea.style.wordWrap = 'break-word';
+  textarea.style.whiteSpace = 'pre-wrap';
+
+  textAreaRef.current = textarea;
+  textEditingRef.current = textarea;
+  textarea.focus();
+
+  function removeTextarea() {
+    setEditingText(false);
+    document.body.removeChild(textarea);
+    window.removeEventListener('click', handleOutsideClick);
+    textAreaRef.current = null;
+    textEditingRef.current = null;
+    setSelectedTextNode(null);
+  }
+
+  function handleOutsideClick(e) {
+    if (e.target !== textarea) {
+      updateText();
+      removeTextarea();
+    }
+  }
+
+  function updateText() {
+    const newText = textarea.value;
+    const newWidth = Math.max(100, getTextWidth(newText, textNode.fontSize) + 20);
+    
+    setTextBoxes((prevTextBoxes) =>
+      prevTextBoxes.map((tb) =>
+        tb.id === textNode.id 
+          ? { 
+              ...tb, 
+              text: newText,
+              width: newWidth,
+            } 
+          : tb
+      )
+    );
+  }
+
+  textarea.addEventListener('keydown', (e) => {
+    // Handle Enter + shift for new lines
+    if (e.key === 'Enter' && !e.shiftKey) {
+      updateText();
+      removeTextarea();
+      e.preventDefault();
+    }
+    if (e.key === 'Escape') {
+      removeTextarea();
+    }
+    
+    // Automatically resize textarea
+    const currentHeight = e.target.scrollHeight;
+    if (currentHeight > parseInt(textarea.style.height)) {
+      textarea.style.height = currentHeight + 'px';
+    }
+  });
+
+  // Handle text changes
+  textarea.addEventListener('input', () => {
+    const newWidth = Math.max(100, getTextWidth(textarea.value, textNode.fontSize) + 20);
+    textarea.style.width = `${newWidth}px`;
+  });
+
+  setTimeout(() => {
+    window.addEventListener('click', handleOutsideClick);
+  });
+};
+
+
+
+  useEffect(() => {
+    return () => {
+      if (textEditingRef.current) {
+        document.body.removeChild(textEditingRef.current);
+      }
+    };
+  }, []);
 
   return (
     <div className="flex h-screen p-4 gap-4">
       {/* Left Sidebar */}
-      <div className="w-1/6">
+      <div className="w-1/4">
         <Card className="h-full">
           <CardHeader>
             <h2 className="text-lg font-semibold">Tools</h2>
@@ -308,6 +386,37 @@ function FP() {
                 </AccordionContent>
               </AccordionItem>
             </Accordion>
+            <Accordion type="single" collapsible>
+              <AccordionItem value="basic-shapes">
+                <AccordionTrigger>Stall Shapes</AccordionTrigger>
+                <AccordionContent className="grid grid-cols-2 gap-2">
+                  <Button
+                    style={{ width: "100px", height: "100px" }}
+                    variant="outline"
+                  >
+                    <SingleStall />
+                  </Button>
+                  <Button
+                    style={{ width: "100px", height: "100px" }}
+                    variant="outline"
+                  >
+                    <Lstall />
+                  </Button>
+                  <Button
+                    style={{ width: "100px", height: "100px" }}
+                    variant="outline"
+                  >
+                    <DoubleStall />
+                  </Button>
+                  <Button
+                    style={{ width: "100px", height: "100px" }}
+                    variant="outline"
+                  >
+                    <VerticalDoubleStall />
+                  </Button>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
           </CardContent>
         </Card>
       </div>
@@ -334,17 +443,32 @@ function FP() {
                   {textBoxes.map((textBox) => (
                     <Text
                       key={textBox.id}
+                      id={textBox.id}
                       x={textBox.x}
                       y={textBox.y}
                       text={textBox.text}
                       fontSize={textBox.fontSize}
                       fill={color}
-                      draggable={isDraggable}
+                      draggable={isDraggable && !editingText}
+                      visible={
+                        !editingText || selectedTextNode?.id !== textBox.id
+                      }
                       onClick={handleShapeSelection}
-                      onDblClick={(e) => handleTextDblClick(e, textBox.id)}
+                      onDblClick={(e) => {
+                        const textNode = e.target;
+                        handleTextEdit({
+                          id: textBox.id,
+                          text: textBox.text,
+                          width: textNode.width(),
+                          height: textNode.height(),
+                          fontSize: textBox.fontSize,
+                          absolutePosition: textNode.absolutePosition(),
+                        });
+                      }}
                       onDragEnd={(e) => handleDragEnd(e, textBox.id, "textBox")}
-                      keepRatio={true}
-                      centeredScaling={true}
+                      width={getTextWidth(textBox.text, textBox.fontSize) + 20}
+                      align="left"
+                      padding={5}
                     />
                   ))}
 
@@ -397,7 +521,7 @@ function FP() {
                     anchorStyleFunc={(anchor) => {
                       if (
                         anchor.hasName("top-center") ||
-                        anchor.hasName("bottom-center") 
+                        anchor.hasName("bottom-center")
                       ) {
                         anchor.height(6);
                         anchor.offsetY(3);
@@ -413,8 +537,7 @@ function FP() {
                         anchor.width(6);
                         anchor.offsetX(3);
                       }
-                    }
-                  }
+                    }}
                   />
                 </Layer>
               </Stage>
@@ -432,7 +555,7 @@ function FP() {
           <CardContent className="space-y-4">
             <Accordion type="single" collapsible>
               <AccordionItem value="text-properties">
-                <AccordionTrigger>Text Properties</AccordionTrigger>
+                <AccordionTrigger>Basic Properties</AccordionTrigger>
                 <AccordionContent className="grid grid-cols-3 gap-2">
                   <div>
                     <Label className="block mb-1">Color</Label>
