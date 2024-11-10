@@ -345,7 +345,7 @@ const handleTextEdit = (textNode) => {
   return (
     <div className="flex h-screen p-4 gap-4">
       {/* Left Sidebar */}
-      <div className="w-1/4">
+      <div className="w-1/5">
         <Card className="h-full">
           <CardHeader>
             <h2 className="text-lg font-semibold">Tools</h2>
@@ -391,25 +391,25 @@ const handleTextEdit = (textNode) => {
                 <AccordionTrigger>Stall Shapes</AccordionTrigger>
                 <AccordionContent className="grid grid-cols-2 gap-2">
                   <Button
-                    style={{ width: "100px", height: "100px" }}
+                    style={{ width: "85px", height: "90px" }}
                     variant="outline"
                   >
                     <SingleStall />
                   </Button>
                   <Button
-                    style={{ width: "100px", height: "100px" }}
+                    style={{ width: "85px", height: "90px" }}
                     variant="outline"
                   >
                     <Lstall />
                   </Button>
                   <Button
-                    style={{ width: "100px", height: "100px" }}
+                    style={{ width: "85px", height: "90px" }}
                     variant="outline"
                   >
                     <DoubleStall />
                   </Button>
                   <Button
-                    style={{ width: "100px", height: "100px" }}
+                    style={{ width: "85px", height: "90px" }}
                     variant="outline"
                   >
                     <VerticalDoubleStall />
@@ -547,7 +547,7 @@ const handleTextEdit = (textNode) => {
       </div>
 
       {/* Right Sidebar */}
-      <div className="w-1/6">
+      <div className="w-1/5">
         <Card className="h-full">
           <CardHeader>
             <h2 className="text-lg font-semibold">Properties</h2>
