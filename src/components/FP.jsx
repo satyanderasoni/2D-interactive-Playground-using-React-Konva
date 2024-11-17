@@ -18,6 +18,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import * as Icons from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "./ui/input";
 import { Label } from "@/components/ui/label";
@@ -37,7 +38,9 @@ function FP() {
   const [selectedTextNode, setSelectedTextNode] = useState(null);
   const textEditingRef = useRef(null);
   const [editingText, setEditingText] = useState(false);
-const textAreaRef = useRef(null);
+  const textAreaRef = useRef(null);
+  const [selectedShape, setSelectedShape] = useState(null);
+  const [selectedShapeType, setSelectedShapeType] = useState(null);
 
   const strokeColor = "#000";
   const isPainting = useRef();
@@ -46,7 +49,51 @@ const textAreaRef = useRef(null);
   const isDraggable = action === ACTIONS.SELECT;
 
   const handleColorChange = (e) => {
-    setColor(e.target.value);
+    const newColor = e.target.value;
+    setColor(newColor);
+
+    if (!selectedShape || !selectedShapeType) return;
+
+    switch (selectedShapeType) {
+      case "square":
+        setSquares((prevSquares) =>
+          prevSquares.map((square) =>
+            square.id === selectedShape.id
+              ? { ...square, color: newColor }
+              : square
+          )
+        );
+        break;
+      case "circle":
+        setCircles((prevCircles) =>
+          prevCircles.map((circle) =>
+            circle.id === selectedShape.id
+              ? { ...circle, color: newColor }
+              : circle
+          )
+        );
+        break;
+      case "arrow":
+        setArrows((prevArrows) =>
+          prevArrows.map((arrow) =>
+            arrow.id === selectedShape.id
+              ? { ...arrow, color: newColor }
+              : arrow
+          )
+        );
+        break;
+      case "textBox":
+        setTextBoxes((prevTextBoxes) =>
+          prevTextBoxes.map((textBox) =>
+            textBox.id === selectedShape.id
+              ? { ...textBox, color: newColor }
+              : textBox
+          )
+        );
+        break;
+      default:
+        break;
+    }
   };
 
   function handleShapeUpdate() {
@@ -106,10 +153,12 @@ const textAreaRef = useRef(null);
 
     if (targetNode === stage) {
       transformerRef.current.nodes([]);
+      setSelectedShape(null);
+      setSelectedShapeType(null);
       stage.batchDraw();
     } else {
       const shape = stage.findOne(
-        (node) => node.id() === currentShapeId.current,
+        (node) => node.id() === currentShapeId.current
       );
       if (shape) {
         transformerRef.current.nodes([shape]);
@@ -119,20 +168,56 @@ const textAreaRef = useRef(null);
     }
   }
 
-  function handleExport() {
-    const uri = stageRef.current.toDataURL();
-    var link = document.createElement("a");
-    link.download = "Floorplan.png";
-    link.href = uri;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  }
-
   function handleShapeSelection(event) {
     if (action !== ACTIONS.SELECT) return;
-    const selectedNode = event.currentTarget;
+    
+    const selectedNode = event.target;
     transformerRef.current.nodes([selectedNode]);
+    
+    // Find the shape in our state arrays
+    const id = selectedNode.id();
+    let shape = null;
+    let type = null;
+
+    const square = squares.find(s => s.id === id);
+    if (square) {
+      shape = square;
+      type = "square";
+      setColor(square.color);
+    }
+
+    const circle = circles.find(c => c.id === id);
+    if (circle) {
+      shape = circle;
+      type = "circle";
+      setColor(circle.color);
+    }
+
+    const arrow = arrows.find(a => a.id === id);
+    if (arrow) {
+      shape = arrow;
+      type = "arrow";
+      setColor(arrow.color);
+    }
+
+    const textBox = textBoxes.find(t => t.id === id);
+    if (textBox) {
+      shape = textBox;
+      type = "textBox";
+      setColor(textBox.color);
+    }
+
+    setSelectedShape(shape);
+    setSelectedShapeType(type);
+  }
+
+  function handleStageClick(e) {
+    if (e.target === e.target.getStage()) {
+      setSelectedShape(null);
+      setSelectedShapeType(null);
+      transformerRef.current.nodes([]);
+      e.target.getStage().batchDraw();
+    }
   }
 
   function onAddShape(shapeType) {
@@ -162,7 +247,7 @@ const textAreaRef = useRef(null);
       case "textBox":
         setTextBoxes((prevText) => [
           ...prevText,
-          { id, x, y, text: "Double click to edit", fontSize: 24 },
+          { id, x, y, text: "Double click to edit", fontSize: 24, color: color },
         ]);
         break;
       default:
@@ -218,121 +303,131 @@ const textAreaRef = useRef(null);
     }
   };
 
-// Add this new utility function
-const getTextWidth = (text, fontSize = 24) => {
-  const canvas = document.createElement('canvas');
-  const context = canvas.getContext('2d');
-  context.font = `${fontSize}px Arial`;
-  return context.measureText(text).width;
-};
-
-// Replace your handleTextEdit function with this improved version
-const handleTextEdit = (textNode) => {
-  setSelectedTextNode(textNode);
-  setEditingText(true);
-  
-  const stage = stageRef.current;
-  const stageBox = stage.container().getBoundingClientRect();
-  const areaPosition = {
-    x: stageBox.left + textNode.absolutePosition.x,
-    y: stageBox.top + textNode.absolutePosition.y,
+  // Add this new utility function
+  const getTextWidth = (text, fontSize = 24) => {
+    const canvas = document.createElement("canvas");
+    const context = canvas.getContext("2d");
+    context.font = `${fontSize}px Arial`;
+    return context.measureText(text).width;
   };
 
-  // Calculate text width and height
-  const width = Math.max(100, getTextWidth(textNode.text, textNode.fontSize) + 20);
-  const height = Math.max(textNode.fontSize + 10, (textNode.text.split('\n').length * textNode.fontSize) + 10);
+  // Replace your handleTextEdit function with this improved version
+  const handleTextEdit = (textNode) => {
+    setSelectedTextNode(textNode);
+    setEditingText(true);
 
-  const textarea = document.createElement('textarea');
-  document.body.appendChild(textarea);
+    const stage = stageRef.current;
+    const stageBox = stage.container().getBoundingClientRect();
+    const areaPosition = {
+      x: stageBox.left + textNode.absolutePosition.x,
+      y: stageBox.top + textNode.absolutePosition.y,
+    };
 
-  textarea.value = textNode.text;
-  textarea.style.position = 'absolute';
-  textarea.style.top = `${areaPosition.y}px`;
-  textarea.style.left = `${areaPosition.x}px`;
-  textarea.style.width = `${width}px`;
-  textarea.style.height = `${height}px`;
-  textarea.style.fontSize = `${textNode.fontSize}px`;
-  textarea.style.padding = '5px';
-  textarea.style.margin = '0px';
-  textarea.style.overflow = 'hidden';
-  textarea.style.background = 'none';
-  textarea.style.outline = 'none';
-  textarea.style.resize = 'none';
-  textarea.style.lineHeight = textNode.fontSize + 'px';
-  textarea.style.fontFamily = 'Arial';
-  textarea.style.zIndex = '1000';
-  textarea.style.minHeight = '50px';
-  textarea.style.color = color;
-  textarea.style.wordWrap = 'break-word';
-  textarea.style.whiteSpace = 'pre-wrap';
-
-  textAreaRef.current = textarea;
-  textEditingRef.current = textarea;
-  textarea.focus();
-
-  function removeTextarea() {
-    setEditingText(false);
-    document.body.removeChild(textarea);
-    window.removeEventListener('click', handleOutsideClick);
-    textAreaRef.current = null;
-    textEditingRef.current = null;
-    setSelectedTextNode(null);
-  }
-
-  function handleOutsideClick(e) {
-    if (e.target !== textarea) {
-      updateText();
-      removeTextarea();
-    }
-  }
-
-  function updateText() {
-    const newText = textarea.value;
-    const newWidth = Math.max(100, getTextWidth(newText, textNode.fontSize) + 20);
-    
-    setTextBoxes((prevTextBoxes) =>
-      prevTextBoxes.map((tb) =>
-        tb.id === textNode.id 
-          ? { 
-              ...tb, 
-              text: newText,
-              width: newWidth,
-            } 
-          : tb
-      )
+    // Calculate text width and height
+    const width = Math.max(
+      100,
+      getTextWidth(textNode.text, textNode.fontSize) + 20,
     );
-  }
+    const height = Math.max(
+      textNode.fontSize + 10,
+      textNode.text.split("\n").length * textNode.fontSize + 10,
+    );
 
-  textarea.addEventListener('keydown', (e) => {
-    // Handle Enter + shift for new lines
-    if (e.key === 'Enter' && !e.shiftKey) {
-      updateText();
-      removeTextarea();
-      e.preventDefault();
+    const textarea = document.createElement("textarea");
+    document.body.appendChild(textarea);
+
+    textarea.value = textNode.text;
+    textarea.style.position = "absolute";
+    textarea.style.top = `${areaPosition.y}px`;
+    textarea.style.left = `${areaPosition.x}px`;
+    textarea.style.width = `${width}px`;
+    textarea.style.height = `${height}px`;
+    textarea.style.fontSize = `${textNode.fontSize}px`;
+    textarea.style.padding = "5px";
+    textarea.style.margin = "0px";
+    textarea.style.overflow = "hidden";
+    textarea.style.background = "none";
+    textarea.style.outline = "none";
+    textarea.style.resize = "none";
+    textarea.style.lineHeight = textNode.fontSize + "px";
+    textarea.style.fontFamily = "Arial";
+    textarea.style.zIndex = "1000";
+    textarea.style.minHeight = "50px";
+    textarea.style.color = color;
+    textarea.style.wordWrap = "break-word";
+    textarea.style.whiteSpace = "pre-wrap";
+
+    textAreaRef.current = textarea;
+    textEditingRef.current = textarea;
+    textarea.focus();
+
+    function removeTextarea() {
+      setEditingText(false);
+      document.body.removeChild(textarea);
+      window.removeEventListener("click", handleOutsideClick);
+      textAreaRef.current = null;
+      textEditingRef.current = null;
+      setSelectedTextNode(null);
     }
-    if (e.key === 'Escape') {
-      removeTextarea();
+
+    function handleOutsideClick(e) {
+      if (e.target !== textarea) {
+        updateText();
+        removeTextarea();
+      }
     }
-    
-    // Automatically resize textarea
-    const currentHeight = e.target.scrollHeight;
-    if (currentHeight > parseInt(textarea.style.height)) {
-      textarea.style.height = currentHeight + 'px';
+
+    function updateText() {
+      const newText = textarea.value;
+      const newWidth = Math.max(
+        100,
+        getTextWidth(newText, textNode.fontSize) + 20,
+      );
+
+      setTextBoxes((prevTextBoxes) =>
+        prevTextBoxes.map((tb) =>
+          tb.id === textNode.id
+            ? {
+                ...tb,
+                text: newText,
+                width: newWidth,
+              }
+            : tb,
+        ),
+      );
     }
-  });
 
-  // Handle text changes
-  textarea.addEventListener('input', () => {
-    const newWidth = Math.max(100, getTextWidth(textarea.value, textNode.fontSize) + 20);
-    textarea.style.width = `${newWidth}px`;
-  });
+    textarea.addEventListener("keydown", (e) => {
+      // Handle Enter + shift for new lines
+      if (e.key === "Enter" && !e.shiftKey) {
+        updateText();
+        removeTextarea();
+        e.preventDefault();
+      }
+      if (e.key === "Escape") {
+        removeTextarea();
+      }
 
-  setTimeout(() => {
-    window.addEventListener('click', handleOutsideClick);
-  });
-};
+      // Automatically resize textarea
+      const currentHeight = e.target.scrollHeight;
+      if (currentHeight > parseInt(textarea.style.height)) {
+        textarea.style.height = currentHeight + "px";
+      }
+    });
 
+    // Handle text changes
+    textarea.addEventListener("input", () => {
+      const newWidth = Math.max(
+        100,
+        getTextWidth(textarea.value, textNode.fontSize) + 20,
+      );
+      textarea.style.width = `${newWidth}px`;
+    });
 
+    setTimeout(() => {
+      window.addEventListener("click", handleOutsideClick);
+    });
+  };
 
   useEffect(() => {
     return () => {
@@ -341,6 +436,90 @@ const handleTextEdit = (textNode) => {
       }
     };
   }, []);
+
+  // Add these functions near the top of your component
+const exportToJSON = () => {
+  const floorplanData = {
+    version: "1.0",
+    timestamp: new Date().toISOString(),
+    canvas: {
+      width: stageRef.current.width(),
+      height: stageRef.current.height(),
+    },
+    elements: {
+      squares: squares.map(square => ({
+        type: 'square',
+        id: square.id,
+        x: square.x,
+        y: square.y,
+        width: square.width,
+        height: square.height,
+        color: square.color,
+      })),
+      circles: circles.map(circle => ({
+        type: 'circle',
+        id: circle.id,
+        x: circle.x,
+        y: circle.y,
+        radius: circle.radius,
+        color: circle.color,
+      })),
+      arrows: arrows.map(arrow => ({
+        type: 'arrow',
+        id: arrow.id,
+        points: arrow.points,
+        color: arrow.color,
+      })),
+      textBoxes: textBoxes.map(textBox => ({
+        type: 'text',
+        id: textBox.id,
+        x: textBox.x,
+        y: textBox.y,
+        text: textBox.text,
+        fontSize: textBox.fontSize,
+        width: getTextWidth(textBox.text, textBox.fontSize) + 20,
+      })),
+    }
+  };
+
+  return floorplanData;
+};
+
+const handleExport = (exportType) => {
+  switch (exportType) {
+    case 'png': {
+      const uri = stageRef.current.toDataURL();
+      const link = document.createElement("a");
+      link.download = "Floorplan.png";
+      link.href = uri;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      break;
+    }
+    case 'json': {
+      const data = exportToJSON();
+      const jsonString = JSON.stringify(data, null, 2);
+      const blob = new Blob([jsonString], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.download = "Floorplan.json";
+      link.href = url;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      break;
+    }
+    case 'both': {
+      handleExport('png');
+      handleExport('json');
+      break;
+    }
+    default:
+      console.warn('Unknown export type:', exportType);
+  }
+};
 
   return (
     <div className="flex h-screen p-4 gap-4">
@@ -438,6 +617,7 @@ const handleTextEdit = (textNode) => {
                 // onPointerDown={onPointerDown}
                 onDragMove={handleShapeUpdate}
                 onPointerUp={isSketching}
+                onClick={handleStageClick}
               >
                 <Layer>
                   {textBoxes.map((textBox) => (
@@ -448,7 +628,7 @@ const handleTextEdit = (textNode) => {
                       y={textBox.y}
                       text={textBox.text}
                       fontSize={textBox.fontSize}
-                      fill={color}
+                      fill={textBox.color}
                       draggable={isDraggable && !editingText}
                       visible={
                         !editingText || selectedTextNode?.id !== textBox.id
@@ -584,9 +764,36 @@ const handleTextEdit = (textNode) => {
                 </AccordionContent>
               </AccordionItem>
             </Accordion>
-            <Button className="items-baseline" onClick={handleExport}>
-              Export
-            </Button>
+            <Accordion type="single" collapsible>
+              <AccordionItem value="export-options">
+                <AccordionTrigger>Export Options</AccordionTrigger>
+                <AccordionContent className="space-y-2">
+                  <Button
+                    className="w-full"
+                    onClick={() => handleExport("png")}
+                  >
+                    <Icons.Image className="mr-2 h-4 w-4" />
+                    Export as PNG
+                  </Button>
+                  <Button
+                    className="w-full"
+                    onClick={() => handleExport("json")}
+                    variant="outline"
+                  >
+                    <Icons.FileJson className="mr-2 h-4 w-4" />
+                    Export as JSON
+                  </Button>
+                  <Button
+                    className="w-full"
+                    onClick={() => handleExport("both")}
+                    variant="secondary"
+                  >
+                    <Icons.Files className="mr-2 h-4 w-4" />
+                    Export Both
+                  </Button>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
           </CardContent>
         </Card>
       </div>
