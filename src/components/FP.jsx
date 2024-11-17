@@ -17,8 +17,16 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Bold, Italic, Underline } from "lucide-react";
 import * as Icons from "lucide-react";
-
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Button } from "@/components/ui/button";
 import { Input } from "./ui/input";
 import { Label } from "@/components/ui/label";
@@ -26,6 +34,16 @@ import SingleStall from "@/assets/singleStall";
 import Lstall from "@/assets/lstall";
 import DoubleStall from "@/assets/doubleStall";
 import VerticalDoubleStall from "@/assets/verticalDoubleStall";
+
+const fonts = [
+  { value: "Arial", label: "Arial" },
+  { value: "Times New Roman", label: "Times New Roman" },
+  { value: "Helvetica", label: "Helvetica" },
+  { value: "Courier New", label: "Courier New" },
+  { value: "Georgia", label: "Georgia" },
+  { value: "Verdana", label: "Verdana" },
+  { value: "Impact", label: "Impact" },
+];
 
 function FP() {
   const stageRef = useRef(null);
@@ -41,8 +59,16 @@ function FP() {
   const textAreaRef = useRef(null);
   const [selectedShape, setSelectedShape] = useState(null);
   const [selectedShapeType, setSelectedShapeType] = useState(null);
+  const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
+  const [selectedFont, setSelectedFont] = useState(fonts[0].value);
+  const [textFormatting, setTextFormatting] = useState({
+    bold: false,
+    italic: false,
+    underline: false,
+  });
 
   const strokeColor = "#000";
+
   const isPainting = useRef();
   const currentShapeId = useRef();
   const transformerRef = useRef();
@@ -60,8 +86,8 @@ function FP() {
           prevSquares.map((square) =>
             square.id === selectedShape.id
               ? { ...square, color: newColor }
-              : square
-          )
+              : square,
+          ),
         );
         break;
       case "circle":
@@ -69,8 +95,8 @@ function FP() {
           prevCircles.map((circle) =>
             circle.id === selectedShape.id
               ? { ...circle, color: newColor }
-              : circle
-          )
+              : circle,
+          ),
         );
         break;
       case "arrow":
@@ -78,8 +104,8 @@ function FP() {
           prevArrows.map((arrow) =>
             arrow.id === selectedShape.id
               ? { ...arrow, color: newColor }
-              : arrow
-          )
+              : arrow,
+          ),
         );
         break;
       case "textBox":
@@ -87,8 +113,109 @@ function FP() {
           prevTextBoxes.map((textBox) =>
             textBox.id === selectedShape.id
               ? { ...textBox, color: newColor }
-              : textBox
-          )
+              : textBox,
+          ),
+        );
+        break;
+      default:
+        break;
+    }
+  };
+
+  const handleWidthChange = (e) => {
+    const newWidth = Number(e.target.value);
+    if (isNaN(newWidth) || !selectedShape || !selectedShapeType) return;
+
+    setDimensions((prev) => ({ ...prev, width: newWidth }));
+
+    switch (selectedShapeType) {
+      case "square":
+        setSquares((prevSquares) =>
+          prevSquares.map((square) =>
+            square.id === selectedShape.id
+              ? { ...square, width: newWidth }
+              : square,
+          ),
+        );
+        break;
+      case "circle":
+        // For circles, we'll use width to set diameter (radius * 2)
+        setCircles((prevCircles) =>
+          prevCircles.map((circle) =>
+            circle.id === selectedShape.id
+              ? { ...circle, radius: newWidth / 2 }
+              : circle,
+          ),
+        );
+        break;
+      case "arrow":
+        // For arrows, adjust the end point while keeping start point fixed
+        setArrows((prevArrows) =>
+          prevArrows.map((arrow) => {
+            if (arrow.id === selectedShape.id) {
+              const [x1, y1, , y2] = arrow.points;
+              return {
+                ...arrow,
+                points: [x1, y1, x1 + newWidth, y2],
+              };
+            }
+            return arrow;
+          }),
+        );
+        break;
+      case "textBox":
+        setTextBoxes((prevTextBoxes) =>
+          prevTextBoxes.map((textBox) =>
+            textBox.id === selectedShape.id
+              ? { ...textBox, width: newWidth }
+              : textBox,
+          ),
+        );
+        break;
+      default:
+        break;
+    }
+  };
+
+  const handleHeightChange = (e) => {
+    const newHeight = Number(e.target.value);
+    if (isNaN(newHeight) || !selectedShape || !selectedShapeType) return;
+
+    setDimensions((prev) => ({ ...prev, height: newHeight }));
+
+    switch (selectedShapeType) {
+      case "square":
+        setSquares((prevSquares) =>
+          prevSquares.map((square) =>
+            square.id === selectedShape.id
+              ? { ...square, height: newHeight }
+              : square,
+          ),
+        );
+        break;
+      case "circle":
+        // For circles, we'll use height to set diameter (radius * 2)
+        setCircles((prevCircles) =>
+          prevCircles.map((circle) =>
+            circle.id === selectedShape.id
+              ? { ...circle, radius: newHeight / 2 }
+              : circle,
+          ),
+        );
+        break;
+      case "arrow":
+        // For arrows, adjust the end point while keeping start point fixed
+        setArrows((prevArrows) =>
+          prevArrows.map((arrow) => {
+            if (arrow.id === selectedShape.id) {
+              const [x1, y1, x2] = arrow.points;
+              return {
+                ...arrow,
+                points: [x1, y1, x2, y1 + newHeight],
+              };
+            }
+            return arrow;
+          }),
         );
         break;
       default:
@@ -158,7 +285,7 @@ function FP() {
       stage.batchDraw();
     } else {
       const shape = stage.findOne(
-        (node) => node.id() === currentShapeId.current
+        (node) => node.id() === currentShapeId.current,
       );
       if (shape) {
         transformerRef.current.nodes([shape]);
@@ -170,51 +297,73 @@ function FP() {
 
   function handleShapeSelection(event) {
     if (action !== ACTIONS.SELECT) return;
-    
+
     const selectedNode = event.target;
     transformerRef.current.nodes([selectedNode]);
-    
-    // Find the shape in our state arrays
+
     const id = selectedNode.id();
     let shape = null;
     let type = null;
+    let shapeDimensions = { width: 0, height: 0 };
 
-    const square = squares.find(s => s.id === id);
+    const square = squares.find((s) => s.id === id);
     if (square) {
       shape = square;
       type = "square";
       setColor(square.color);
+      shapeDimensions = { width: square.width, height: square.height };
     }
 
-    const circle = circles.find(c => c.id === id);
+    const circle = circles.find((c) => c.id === id);
     if (circle) {
       shape = circle;
       type = "circle";
       setColor(circle.color);
+      // For circles, set both width and height to diameter (radius * 2)
+      shapeDimensions = {
+        width: circle.radius * 2,
+        height: circle.radius * 2,
+      };
     }
 
-    const arrow = arrows.find(a => a.id === id);
+    const arrow = arrows.find((a) => a.id === id);
     if (arrow) {
       shape = arrow;
       type = "arrow";
       setColor(arrow.color);
+      // Calculate arrow dimensions from points
+      const [x1, y1, x2, y2] = arrow.points;
+      shapeDimensions = {
+        width: Math.abs(x2 - x1),
+        height: Math.abs(y2 - y1),
+      };
     }
 
-    const textBox = textBoxes.find(t => t.id === id);
+    const textBox = textBoxes.find((t) => t.id === id);
     if (textBox) {
       shape = textBox;
       type = "textBox";
       setColor(textBox.color);
+      shapeDimensions = { width: textBox.width || 0, height: 0 };
+      
+      // Update text formatting state based on selected text
+      setTextFormatting({
+        bold: textBox.fontStyle?.includes('bold') || false,
+        italic: textBox.fontStyle?.includes('italic') || false,
+        underline: textBox.textDecoration === 'underline' || false
+      });
     }
 
     setSelectedShape(shape);
     setSelectedShapeType(type);
+    setDimensions(shapeDimensions);
   }
 
   function handleStageClick(e) {
     if (e.target === e.target.getStage()) {
       setSelectedShape(null);
       setSelectedShapeType(null);
+      setDimensions({ width: 0, height: 0 });
       transformerRef.current.nodes([]);
       e.target.getStage().batchDraw();
     }
@@ -247,7 +396,15 @@ function FP() {
       case "textBox":
         setTextBoxes((prevText) => [
           ...prevText,
-          { id, x, y, text: "Double click to edit", fontSize: 24, color: color },
+          {
+            id,
+            x,
+            y,
+            text: "Double click to edit",
+            fontSize: 24,
+            color: color,
+            fontFamily: selectedFont.value,
+          },
         ]);
         break;
       default:
@@ -323,7 +480,6 @@ function FP() {
       y: stageBox.top + textNode.absolutePosition.y,
     };
 
-    // Calculate text width and height
     const width = Math.max(
       100,
       getTextWidth(textNode.text, textNode.fontSize) + 20,
@@ -343,6 +499,7 @@ function FP() {
     textarea.style.width = `${width}px`;
     textarea.style.height = `${height}px`;
     textarea.style.fontSize = `${textNode.fontSize}px`;
+    textarea.style.fontFamily = textNode.fontFamily || selectedFont.value; // Use the font
     textarea.style.padding = "5px";
     textarea.style.margin = "0px";
     textarea.style.overflow = "hidden";
@@ -350,13 +507,11 @@ function FP() {
     textarea.style.outline = "none";
     textarea.style.resize = "none";
     textarea.style.lineHeight = textNode.fontSize + "px";
-    textarea.style.fontFamily = "Arial";
     textarea.style.zIndex = "1000";
     textarea.style.minHeight = "50px";
     textarea.style.color = color;
     textarea.style.wordWrap = "break-word";
     textarea.style.whiteSpace = "pre-wrap";
-
     textAreaRef.current = textarea;
     textEditingRef.current = textarea;
     textarea.focus();
@@ -429,6 +584,50 @@ function FP() {
     });
   };
 
+  const handleTextFormatting = (format) => {
+    if (!selectedShape || selectedShapeType !== "textBox") return;
+
+    const newFormatting = {
+      ...textFormatting,
+      [format]: !textFormatting[format]
+    };
+    setTextFormatting(newFormatting);
+
+    setTextBoxes((prevTextBoxes) =>
+      prevTextBoxes.map((tb) => {
+        if (tb.id === selectedShape.id) {
+          const fontStyle = [];
+          if (newFormatting.bold) fontStyle.push('bold');
+          if (newFormatting.italic) fontStyle.push('italic');
+          
+          return {
+            ...tb,
+            fontStyle: fontStyle.join(' ') || 'normal',
+            textDecoration: newFormatting.underline ? 'underline' : ''
+          };
+        }
+        return tb;
+      })
+    );
+  };
+
+  const handleFontChange = (value) => {
+    setSelectedFont(value);
+
+    if (selectedShape && selectedShapeType === "textBox") {
+      setTextBoxes((prevTextBoxes) =>
+        prevTextBoxes.map((tb) =>
+          tb.id === selectedShape.id
+            ? {
+                ...tb,
+                fontFamily: value,
+              }
+            : tb,
+        ),
+      );
+    }
+  };
+
   useEffect(() => {
     return () => {
       if (textEditingRef.current) {
@@ -438,88 +637,88 @@ function FP() {
   }, []);
 
   // Add these functions near the top of your component
-const exportToJSON = () => {
-  const floorplanData = {
-    version: "1.0",
-    timestamp: new Date().toISOString(),
-    canvas: {
-      width: stageRef.current.width(),
-      height: stageRef.current.height(),
-    },
-    elements: {
-      squares: squares.map(square => ({
-        type: 'square',
-        id: square.id,
-        x: square.x,
-        y: square.y,
-        width: square.width,
-        height: square.height,
-        color: square.color,
-      })),
-      circles: circles.map(circle => ({
-        type: 'circle',
-        id: circle.id,
-        x: circle.x,
-        y: circle.y,
-        radius: circle.radius,
-        color: circle.color,
-      })),
-      arrows: arrows.map(arrow => ({
-        type: 'arrow',
-        id: arrow.id,
-        points: arrow.points,
-        color: arrow.color,
-      })),
-      textBoxes: textBoxes.map(textBox => ({
-        type: 'text',
-        id: textBox.id,
-        x: textBox.x,
-        y: textBox.y,
-        text: textBox.text,
-        fontSize: textBox.fontSize,
-        width: getTextWidth(textBox.text, textBox.fontSize) + 20,
-      })),
-    }
+  const exportToJSON = () => {
+    const floorplanData = {
+      version: "1.0",
+      timestamp: new Date().toISOString(),
+      canvas: {
+        width: stageRef.current.width(),
+        height: stageRef.current.height(),
+      },
+      elements: {
+        squares: squares.map((square) => ({
+          type: "square",
+          id: square.id,
+          x: square.x,
+          y: square.y,
+          width: square.width,
+          height: square.height,
+          color: square.color,
+        })),
+        circles: circles.map((circle) => ({
+          type: "circle",
+          id: circle.id,
+          x: circle.x,
+          y: circle.y,
+          radius: circle.radius,
+          color: circle.color,
+        })),
+        arrows: arrows.map((arrow) => ({
+          type: "arrow",
+          id: arrow.id,
+          points: arrow.points,
+          color: arrow.color,
+        })),
+        textBoxes: textBoxes.map((textBox) => ({
+          type: "text",
+          id: textBox.id,
+          x: textBox.x,
+          y: textBox.y,
+          text: textBox.text,
+          fontSize: textBox.fontSize,
+          width: getTextWidth(textBox.text, textBox.fontSize) + 20,
+        })),
+      },
+    };
+
+    return floorplanData;
   };
 
-  return floorplanData;
-};
-
-const handleExport = (exportType) => {
-  switch (exportType) {
-    case 'png': {
-      const uri = stageRef.current.toDataURL();
-      const link = document.createElement("a");
-      link.download = "Floorplan.png";
-      link.href = uri;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      break;
+  const handleExport = (exportType) => {
+    switch (exportType) {
+      case "png": {
+        const uri = stageRef.current.toDataURL();
+        const link = document.createElement("a");
+        link.download = "Floorplan.png";
+        link.href = uri;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        break;
+      }
+      case "json": {
+        const data = exportToJSON();
+        const jsonString = JSON.stringify(data, null, 2);
+        const blob = new Blob([jsonString], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.download = "Floorplan.json";
+        link.href = url;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        break;
+      }
+      case "both": {
+        handleExport("png");
+        handleExport("json");
+        break;
+      }
+      default:
+        console.warn("Unknown export type:", exportType);
     }
-    case 'json': {
-      const data = exportToJSON();
-      const jsonString = JSON.stringify(data, null, 2);
-      const blob = new Blob([jsonString], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.download = "Floorplan.json";
-      link.href = url;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-      break;
-    }
-    case 'both': {
-      handleExport('png');
-      handleExport('json');
-      break;
-    }
-    default:
-      console.warn('Unknown export type:', exportType);
-  }
-};
+  };
 
   return (
     <div className="flex h-screen p-4 gap-4">
@@ -628,7 +827,10 @@ const handleExport = (exportType) => {
                       y={textBox.y}
                       text={textBox.text}
                       fontSize={textBox.fontSize}
+                      fontFamily={textBox.fontFamily}
                       fill={textBox.color}
+                      fontStyle={textBox.fontStyle}
+                      textDecoration={textBox.textDecoration}
                       draggable={isDraggable && !editingText}
                       visible={
                         !editingText || selectedTextNode?.id !== textBox.id
@@ -642,6 +844,9 @@ const handleExport = (exportType) => {
                           width: textNode.width(),
                           height: textNode.height(),
                           fontSize: textBox.fontSize,
+                          fontFamily: textBox.fontFamily,
+                          fontStyle: textBox.fontStyle,
+                          textDecoration: textBox.textDecoration,
                           absolutePosition: textNode.absolutePosition(),
                         });
                       }}
@@ -738,6 +943,7 @@ const handleExport = (exportType) => {
                 <AccordionTrigger>Basic Properties</AccordionTrigger>
                 <AccordionContent className="grid grid-cols-3 gap-2">
                   <div>
+                    {" "}
                     <Label className="block mb-1">Color</Label>
                     <Input
                       type="color"
@@ -746,20 +952,95 @@ const handleExport = (exportType) => {
                     />
                   </div>
                   <div>
+                    {" "}
                     <Label className="block mb-1">Width</Label>
                     <Input
                       type="number"
-                      placeholder="Enter width"
+                      value={dimensions.width}
+                      onChange={handleWidthChange}
+                      disabled={!selectedShape}
+                      min={0}
+                      step={1}
                       className="w-full"
                     />
                   </div>
                   <div>
+                    {" "}
                     <Label className="block mb-1">Height</Label>
                     <Input
                       type="number"
-                      placeholder="Enter height"
+                      value={dimensions.height}
+                      onChange={handleHeightChange}
+                      disabled={!selectedShape}
+                      min={0}
+                      step={1}
                       className="w-full"
                     />
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
+            <Accordion type="single" collapsible>
+              <AccordionItem value="text-properties">
+                <AccordionTrigger>Text Properties</AccordionTrigger>
+                <AccordionContent>
+                  <div className="space-y-4">
+                    <ToggleGroup
+                      className="grid grid-cols-3 gap-2"
+                      type="multiple"
+                      value={Object.entries(textFormatting)
+                        .filter(([, value]) => value)
+                        .map(([key]) => key)}
+                    >
+                      <ToggleGroupItem
+                        value="bold"
+                        aria-label="Toggle bold"
+                        disabled={
+                          !selectedShape || selectedShapeType !== "textBox"
+                        }
+                        onClick={() => handleTextFormatting("bold")}
+                      >
+                        <Bold className="h-4 w-4" />
+                      </ToggleGroupItem>
+                      <ToggleGroupItem
+                        value="italic"
+                        aria-label="Toggle italic"
+                        disabled={
+                          !selectedShape || selectedShapeType !== "textBox"
+                        }
+                        onClick={() => handleTextFormatting("italic")}
+                      >
+                        <Italic className="h-4 w-4" />
+                      </ToggleGroupItem>
+                      <ToggleGroupItem
+                        value="underline"
+                        aria-label="Toggle underline"
+                        disabled={
+                          !selectedShape || selectedShapeType !== "textBox"
+                        }
+                        onClick={() => handleTextFormatting("underline")}
+                      >
+                        <Underline className="h-4 w-4" />
+                      </ToggleGroupItem>
+                    </ToggleGroup>
+                    <div className="flex flex-col space-y-1">
+                      <Label>Font Family</Label>
+                      <Select
+                        value={selectedFont}
+                        onValueChange={handleFontChange}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select a font" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {fonts.map((font) => (
+                            <SelectItem key={font.value} value={font.value}>
+                              {font.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                 </AccordionContent>
               </AccordionItem>
