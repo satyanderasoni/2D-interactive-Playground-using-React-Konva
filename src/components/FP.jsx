@@ -30,20 +30,13 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Button } from "@/components/ui/button";
 import { Input } from "./ui/input";
 import { Label } from "@/components/ui/label";
+import fonts from "./fonts";
 import SingleStall from "@/assets/singleStall";
 import Lstall from "@/assets/lstall";
 import DoubleStall from "@/assets/doubleStall";
 import VerticalDoubleStall from "@/assets/verticalDoubleStall";
 
-const fonts = [
-  { value: "Arial", label: "Arial" },
-  { value: "Times New Roman", label: "Times New Roman" },
-  { value: "Helvetica", label: "Helvetica" },
-  { value: "Courier New", label: "Courier New" },
-  { value: "Georgia", label: "Georgia" },
-  { value: "Verdana", label: "Verdana" },
-  { value: "Impact", label: "Impact" },
-];
+
 
 function FP() {
   const stageRef = useRef(null);
@@ -628,6 +621,8 @@ function FP() {
     }
   };
 
+
+
   useEffect(() => {
     return () => {
       if (textEditingRef.current) {
@@ -912,6 +907,7 @@ function FP() {
                         anchor.offsetY(3);
                         anchor.width(30);
                         anchor.offsetX(15);
+                        anchor.cursor = "ns-resize";
                       }
                       if (
                         anchor.hasName("middle-left") ||
@@ -921,8 +917,10 @@ function FP() {
                         anchor.offsetY(15);
                         anchor.width(6);
                         anchor.offsetX(3);
+                        anchor.cursor = "ew-resize";
                       }
                     }}
+
                   />
                 </Layer>
               </Stage>
@@ -1024,7 +1022,7 @@ function FP() {
                       </ToggleGroupItem>
                     </ToggleGroup>
                     <div className="flex flex-col space-y-1">
-                      <Label>Font Family</Label>
+                      <Label>Font</Label>
                       <Select
                         value={selectedFont}
                         onValueChange={handleFontChange}
