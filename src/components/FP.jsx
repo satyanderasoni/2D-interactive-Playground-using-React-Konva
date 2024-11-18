@@ -63,7 +63,7 @@ function FP() {
   });
   const [guidelines, setGuidelines] = useState([]);
 
-  const strokeColor = "#000";
+  const strokeColor = "#000000";
 
   const isPainting = useRef();
   const currentShapeId = useRef();
