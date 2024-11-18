@@ -9,6 +9,7 @@ import {
   Transformer,
   Arrow,
   Text,
+  Line,
 } from "react-konva";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import {
@@ -35,8 +36,9 @@ import SingleStall from "@/assets/singleStall";
 import Lstall from "@/assets/lstall";
 import DoubleStall from "@/assets/doubleStall";
 import VerticalDoubleStall from "@/assets/verticalDoubleStall";
-
-
+// Constants for snapping
+const SNAP_THRESHOLD = 10;
+const GUIDELINES_COLOR = "#000000";
 
 function FP() {
   const stageRef = useRef(null);
@@ -59,6 +61,7 @@ function FP() {
     italic: false,
     underline: false,
   });
+  const [guidelines, setGuidelines] = useState([]);
 
   const strokeColor = "#000";
 
@@ -66,6 +69,119 @@ function FP() {
   const currentShapeId = useRef();
   const transformerRef = useRef();
   const isDraggable = action === ACTIONS.SELECT;
+
+  // Add this new helper function for snapping calculation
+const getLineGuideStops = (skipShape) => {
+  const stage = stageRef.current;
+  if (!stage) return { vertical: [], horizontal: [] };
+
+  const vertical = [];
+  const horizontal = [];
+
+  // Helper to get shape boundaries
+  const getObjectSnappingEdges = (node) => {
+    // Use Konva's specific methods to get boundaries
+    const box = node.getClientRect({ skipTransform: true });
+    return {
+      vertical: [box.x, box.x + box.width / 2, box.x + box.width],
+      horizontal: [box.y, box.y + box.height / 2, box.y + box.height],
+    };
+  };
+
+  // Get all shapes
+  const allShapes = [
+    ...squares.map((square) => stage.findOne(`#${square.id}`)),
+    ...circles.map((circle) => stage.findOne(`#${circle.id}`)),
+    ...textBoxes.map((textBox) => stage.findOne(`#${textBox.id}`)),
+    ...arrows.map((arrow) => stage.findOne(`#${arrow.id}`)),
+  ].filter(Boolean); // Remove any null values
+
+  // Build guides from shapes
+  allShapes.forEach((shape) => {
+    if (shape.id() === skipShape?.id) return;
+    const edges = getObjectSnappingEdges(shape);
+    vertical.push(...edges.vertical);
+    horizontal.push(...edges.horizontal);
+  });
+
+  // Add stage boundaries
+  vertical.push(0, stage.width() / 2, stage.width());
+  horizontal.push(0, stage.height() / 2, stage.height());
+
+  return {
+    vertical: vertical.filter((item, i, arr) => arr.indexOf(item) === i),
+    horizontal: horizontal.filter((item, i, arr) => arr.indexOf(item) === i),
+  };
+};
+  // Add function to get closest guide
+  const getClosestGuide = (guides, pos) => {
+    let closest = null;
+    let minDist = SNAP_THRESHOLD;
+
+    guides.forEach((guide) => {
+      const dist = Math.abs(pos - guide);
+      if (dist < minDist) {
+        minDist = dist;
+        closest = guide;
+      }
+    });
+
+    return closest;
+  };
+
+  // Modified drag handler with snapping
+  const handleDragMove = (e) => {
+    const shape = e.target;
+    const guides = getLineGuideStops(shape);
+    const shapeBounds = shape.getClientRect();
+
+    // Find closest guides
+    const newVerticalGuide = getClosestGuide(guides.vertical, shapeBounds.x);
+
+    const newHorizontalGuide = getClosestGuide(
+      guides.horizontal,
+      shapeBounds.y,
+    );
+
+    // Apply snapping
+    if (newVerticalGuide !== null) {
+      shape.x(newVerticalGuide);
+    }
+
+    if (newHorizontalGuide !== null) {
+      shape.y(newHorizontalGuide);
+    }
+
+    // Update guidelines visualization
+    setGuidelines([
+      ...(newVerticalGuide !== null
+        ? [
+            {
+              points: [
+                newVerticalGuide,
+                0,
+                newVerticalGuide,
+                stageRef.current.height(),
+              ],
+              type: "vertical",
+            },
+          ]
+        : []),
+      ...(newHorizontalGuide !== null
+        ? [
+            {
+              points: [
+                0,
+                newHorizontalGuide,
+                stageRef.current.width(),
+                newHorizontalGuide,
+              ],
+              type: "horizontal",
+            },
+          ]
+        : []),
+    ]);
+  };
 
   const handleColorChange = (e) => {
     const newColor = e.target.value;
@@ -338,12 +454,12 @@ function FP() {
       type = "textBox";
       setColor(textBox.color);
       shapeDimensions = { width: textBox.width || 0, height: 0 };
-      
+
       // Update text formatting state based on selected text
       setTextFormatting({
-        bold: textBox.fontStyle?.includes('bold') || false,
-        italic: textBox.fontStyle?.includes('italic') || false,
-        underline: textBox.textDecoration === 'underline' || false
+        bold: textBox.fontStyle?.includes("bold") || false,
+        italic: textBox.fontStyle?.includes("italic") || false,
+        underline: textBox.textDecoration === "underline" || false,
       });
     }
 
@@ -407,6 +523,7 @@ function FP() {
   }
 
   const handleDragEnd = (e, id, shapeType) => {
+    setGuidelines([]);
     switch (shapeType) {
       case "textBox": {
         const newText = textBoxes.map((textBox) => {
@@ -582,7 +699,7 @@ function FP() {
 
     const newFormatting = {
       ...textFormatting,
-      [format]: !textFormatting[format]
+      [format]: !textFormatting[format],
     };
     setTextFormatting(newFormatting);
 
@@ -590,17 +707,17 @@ function FP() {
       prevTextBoxes.map((tb) => {
         if (tb.id === selectedShape.id) {
           const fontStyle = [];
-          if (newFormatting.bold) fontStyle.push('bold');
-          if (newFormatting.italic) fontStyle.push('italic');
-          
+          if (newFormatting.bold) fontStyle.push("bold");
+          if (newFormatting.italic) fontStyle.push("italic");
+
           return {
             ...tb,
-            fontStyle: fontStyle.join(' ') || 'normal',
-            textDecoration: newFormatting.underline ? 'underline' : ''
+            fontStyle: fontStyle.join(" ") || "normal",
+            textDecoration: newFormatting.underline ? "underline" : "",
           };
         }
         return tb;
-      })
+      }),
     );
   };
 
@@ -620,8 +737,6 @@ function FP() {
       );
     }
   };
-
-
 
   useEffect(() => {
     return () => {
@@ -806,7 +921,7 @@ function FP() {
             <div>
               <Stage
                 width={950}
-                height={630}
+                height={950}
                 ref={stageRef}
                 // onPointerDown={onPointerDown}
                 onDragMove={handleShapeUpdate}
@@ -846,6 +961,7 @@ function FP() {
                         });
                       }}
                       onDragEnd={(e) => handleDragEnd(e, textBox.id, "textBox")}
+                      onDragMove={handleDragMove}
                       width={getTextWidth(textBox.text, textBox.fontSize) + 20}
                       align="left"
                       padding={5}
@@ -864,6 +980,7 @@ function FP() {
                       draggable={isDraggable}
                       onClick={handleShapeSelection}
                       onDragEnd={(e) => handleDragEnd(e, square.id, "square")}
+                      onDragMove={handleDragMove}
                     />
                   ))}
 
@@ -878,6 +995,7 @@ function FP() {
                       draggable={isDraggable}
                       onClick={handleShapeSelection}
                       onDragEnd={(e) => handleDragEnd(e, circle.id, "circle")}
+                      onDragMove={handleDragMove}
                     />
                   ))}
                   {arrows.map((arrow) => (
@@ -891,8 +1009,21 @@ function FP() {
                       draggable={isDraggable}
                       onClick={handleShapeSelection}
                       onDragEnd={(e) => handleDragEnd(e, arrow.id, "arrow")}
+                      onDragMove={handleDragMove}
                     />
                   ))}
+
+                  {/* Guidelines */}
+                  {guidelines.map((line, i) => (
+                    <Line
+                      key={i}
+                      points={line.points}
+                      stroke={GUIDELINES_COLOR}
+                      strokeWidth={1}
+                      dash={[2, 2]}
+                    />
+                  ))}
+
                   <Transformer
                     ref={transformerRef}
                     anchorCornerRadius={5}
@@ -920,7 +1051,6 @@ function FP() {
                         anchor.cursor = "ew-resize";
                       }
                     }}
-
                   />
                 </Layer>
               </Stage>
