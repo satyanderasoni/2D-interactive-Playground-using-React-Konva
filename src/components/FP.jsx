@@ -39,6 +39,7 @@ import VerticalDoubleStall from "@/assets/verticalDoubleStall";
 // Constants for snapping
 const SNAP_THRESHOLD = 10;
 const GUIDELINES_COLOR = "#000000";
+const GUIDELINES_STROKE_WIDTH = 1;
 
 function FP() {
   const stageRef = useRef(null);
@@ -70,117 +71,151 @@ function FP() {
   const transformerRef = useRef();
   const isDraggable = action === ACTIONS.SELECT;
 
+
+  
+
   // Add this new helper function for snapping calculation
-const getLineGuideStops = (skipShape) => {
-  const stage = stageRef.current;
-  if (!stage) return { vertical: [], horizontal: [] };
-
-  const vertical = [];
-  const horizontal = [];
-
-  // Helper to get shape boundaries
-  const getObjectSnappingEdges = (node) => {
-    // Use Konva's specific methods to get boundaries
-    const box = node.getClientRect({ skipTransform: true });
+  const getShapeSnapPoints = (node) => {
+    const box = node.getClientRect();
     return {
-      vertical: [box.x, box.x + box.width / 2, box.x + box.width],
-      horizontal: [box.y, box.y + box.height / 2, box.y + box.height],
+      // Vertical points
+      vertical: [
+        { point: box.x, position: "start" },                    // Left edge
+        { point: box.x + box.width / 2, position: "middle" },   // Center
+        { point: box.x + box.width, position: "end" }           // Right edge
+      ],
+      // Horizontal points
+      horizontal: [
+        { point: box.y, position: "start" },                    // Top edge
+        { point: box.y + box.height / 2, position: "middle" },  // Middle
+        { point: box.y + box.height, position: "end" }          // Bottom edge
+      ]
     };
   };
-
-  // Get all shapes
-  const allShapes = [
-    ...squares.map((square) => stage.findOne(`#${square.id}`)),
-    ...circles.map((circle) => stage.findOne(`#${circle.id}`)),
-    ...textBoxes.map((textBox) => stage.findOne(`#${textBox.id}`)),
-    ...arrows.map((arrow) => stage.findOne(`#${arrow.id}`)),
-  ].filter(Boolean); // Remove any null values
-
-  // Build guides from shapes
-  allShapes.forEach((shape) => {
-    if (shape.id() === skipShape?.id) return;
-    const edges = getObjectSnappingEdges(shape);
-    vertical.push(...edges.vertical);
-    horizontal.push(...edges.horizontal);
-  });
-
-  // Add stage boundaries
-  vertical.push(0, stage.width() / 2, stage.width());
-  horizontal.push(0, stage.height() / 2, stage.height());
-
-  return {
-    vertical: vertical.filter((item, i, arr) => arr.indexOf(item) === i),
-    horizontal: horizontal.filter((item, i, arr) => arr.indexOf(item) === i),
+  
+  // Get all snap lines for the stage
+  const getStageSnapLines = (stage, skipShape) => {
+    const allShapes = stage.find('Shape, Text, Rect, Circle, Arrow').filter(shape => 
+      shape.id() !== skipShape?.id()
+    );
+    
+    const verticalLines = new Set();
+    const horizontalLines = new Set();
+    
+    // Add stage boundaries
+    const stageBounds = {
+      vertical: [0, stage.width() / 2, stage.width()],
+      horizontal: [0, stage.height() / 2, stage.height()]
+    };
+    
+    stageBounds.vertical.forEach(point => verticalLines.add(point));
+    stageBounds.horizontal.forEach(point => horizontalLines.add(point));
+    
+    // Add shape guidelines
+    allShapes.forEach(shape => {
+      const snapPoints = getShapeSnapPoints(shape);
+      snapPoints.vertical.forEach(({point}) => verticalLines.add(point));
+      snapPoints.horizontal.forEach(({point}) => horizontalLines.add(point));
+    });
+    
+    return {
+      vertical: Array.from(verticalLines).sort((a, b) => a - b),
+      horizontal: Array.from(horizontalLines).sort((a, b) => a - b)
+    };
   };
-};
-  // Add function to get closest guide
-  const getClosestGuide = (guides, pos) => {
-    let closest = null;
-    let minDist = SNAP_THRESHOLD;
-
-    guides.forEach((guide) => {
-      const dist = Math.abs(pos - guide);
+  
+  // Find the closest snap point
+  const getClosestSnapPoint = (value, snapPoints, threshold) => {
+    let minDist = threshold;
+    let closestPoint = null;
+    
+    snapPoints.forEach(point => {
+      const dist = Math.abs(point - value);
       if (dist < minDist) {
         minDist = dist;
-        closest = guide;
+        closestPoint = point;
       }
     });
-
-    return closest;
+    
+    return closestPoint;
+  };
+  
+  // Generate guidelines for snapping
+  const getSnapGuidelines = (shape, stage) => {
+    const guidelines = [];
+    const snapLines = getStageSnapLines(stage, shape);
+    const shapePoints = getShapeSnapPoints(shape);
+    
+    // Check vertical snapping
+    shapePoints.vertical.forEach(({point, position}) => {
+      const snapPoint = getClosestSnapPoint(point, snapLines.vertical, SNAP_THRESHOLD);
+      if (snapPoint !== null) {
+        // Adjust shape position
+        const diff = snapPoint - point;
+        if (position === "start") {
+          shape.x(shape.x() + diff);
+        } else if (position === "end") {
+          shape.x(shape.x() + diff);
+        } else {
+          shape.x(shape.x() + diff);
+        }
+        
+        // Add vertical guideline
+        guidelines.push({
+          type: 'vertical',
+          points: [snapPoint, 0, snapPoint, stage.height()]
+        });
+      }
+    });
+    
+    // Check horizontal snapping
+    shapePoints.horizontal.forEach(({point, position}) => {
+      const snapPoint = getClosestSnapPoint(point, snapLines.horizontal, SNAP_THRESHOLD);
+      if (snapPoint !== null) {
+        // Adjust shape position
+        const diff = snapPoint - point;
+        if (position === "start") {
+          shape.y(shape.y() + diff);
+        } else if (position === "end") {
+          shape.y(shape.y() + diff);
+        } else {
+          shape.y(shape.y() + diff);
+        }
+        
+        // Add horizontal guideline
+        guidelines.push({
+          type: 'horizontal',
+          points: [0, snapPoint, stage.width(), snapPoint]
+        });
+      }
+    });
+    
+    return guidelines;
   };
 
   // Modified drag handler with snapping
   const handleDragMove = (e) => {
     const shape = e.target;
-    const guides = getLineGuideStops(shape);
-    const shapeBounds = shape.getClientRect();
+    const stage = shape.getStage();
+    
+    // Get and apply snap guidelines
+    const guidelines = getSnapGuidelines(shape, stage);
+    const isTransforming = transformerRef.current?.nodes().includes(shape);
 
-    // Find closest guides
-    const newVerticalGuide = getClosestGuide(guides.vertical, shapeBounds.x);
-
-    const newHorizontalGuide = getClosestGuide(
-      guides.horizontal,
-      shapeBounds.y,
-    );
-
-    // Apply snapping
-    if (newVerticalGuide !== null) {
-      shape.x(newVerticalGuide);
+    if (!isTransforming) {
+      // Get and apply snap guidelines for regular dragging
+      const guidelines = getSnapGuidelines(shape, stage);
+      setGuidelines(guidelines);
     }
-
-    if (newHorizontalGuide !== null) {
-      shape.y(newHorizontalGuide);
-    }
-
-    // Update guidelines visualization
-    setGuidelines([
-      ...(newVerticalGuide !== null
-        ? [
-            {
-              points: [
-                newVerticalGuide,
-                0,
-                newVerticalGuide,
-                stageRef.current.height(),
-              ],
-              type: "vertical",
-            },
-          ]
-        : []),
-      ...(newHorizontalGuide !== null
-        ? [
-            {
-              points: [
-                0,
-                newHorizontalGuide,
-                stageRef.current.width(),
-                newHorizontalGuide,
-              ],
-              type: "horizontal",
-            },
-          ]
-        : []),
-    ]);
+    
+    // Update guidelines in state
+    setGuidelines(guidelines.map(guide => ({
+      points: guide.points,
+      type: guide.type
+    })));
+    
+    // Force render
+    stage.batchDraw();
   };
 
   const handleColorChange = (e) => {
@@ -408,12 +443,18 @@ const getLineGuideStops = (skipShape) => {
     if (action !== ACTIONS.SELECT) return;
 
     const selectedNode = event.target;
-    transformerRef.current.nodes([selectedNode]);
+    const transformer = transformerRef.current;
+    transformer.nodes([selectedNode]);
 
     const id = selectedNode.id();
     let shape = null;
     let type = null;
     let shapeDimensions = { width: 0, height: 0 };
+
+    selectedNode.on('dragmove', handleDragMove);
+    selectedNode.on('transform', (e) => {
+      handleDragMove(e);
+    });
 
     const square = squares.find((s) => s.id === id);
     if (square) {
@@ -918,7 +959,7 @@ const getLineGuideStops = (skipShape) => {
             </h2>
           </CardHeader>
           <CardContent className="border-2 border-dashed border-gray-400">
-            <div>
+            <div >
               <Stage
                 width={950}
                 height={950}
@@ -1019,8 +1060,9 @@ const getLineGuideStops = (skipShape) => {
                       key={i}
                       points={line.points}
                       stroke={GUIDELINES_COLOR}
-                      strokeWidth={1}
-                      dash={[2, 2]}
+                      strokeWidth={GUIDELINES_STROKE_WIDTH}
+                      dash={[4, 4]}
+                      opacity={0.8}
                     />
                   ))}
 
@@ -1061,7 +1103,7 @@ const getLineGuideStops = (skipShape) => {
 
       {/* Right Sidebar */}
       <div className="w-1/5">
-        <Card className="h-full">
+        <Card className="w-full">
           <CardHeader>
             <h2 className="text-lg font-semibold">Properties</h2>
           </CardHeader>
