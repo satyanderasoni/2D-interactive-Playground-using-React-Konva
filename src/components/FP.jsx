@@ -875,7 +875,7 @@ function FP() {
     <div className="flex h-screen p-4 gap-4">
       {/* Left Sidebar */}
       <div className="w-1/5">
-        <Card className="h-full">
+        <Card className="w-full">
           <CardHeader>
             <h2 className="text-lg font-semibold">Tools</h2>
           </CardHeader>
