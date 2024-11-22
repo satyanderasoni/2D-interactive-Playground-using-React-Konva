@@ -886,18 +886,23 @@ function FP() {
                 <AccordionContent className="grid grid-cols-3 gap-2">
                   <Button
                     variant="outline"
+                    size="icon"
                     onClick={() => onAddShape("square")}
                   >
-                    <Icons.SquareIcon size={24} />
+                    <Icons.SquareIcon size={18} />
                   </Button>
                   <Button
                     variant="outline"
+                    size="icon"
                     onClick={() => onAddShape("circle")}
                   >
-                    <Icons.Circle size={24} />
+                    <Icons.Circle size={18} />
                   </Button>
-                  <Button variant="outline" onClick={() => onAddShape("arrow")}>
-                    <Icons.ArrowUp size={24} />
+                  <Button 
+                  variant="outline" 
+                  size="icon"
+                  onClick={() => onAddShape("arrow")}>
+                    <Icons.ArrowUp size={18} />
                   </Button>
                 </AccordionContent>
               </AccordionItem>
@@ -908,9 +913,10 @@ function FP() {
                 <AccordionContent className="grid grid-cols-3 gap-2">
                   <Button
                     variant="outline"
+                    size="icon"
                     onClick={() => onAddShape("textBox")}
                   >
-                    <Icons.Type size={24} />
+                    <Icons.Type size={18} />
                   </Button>
                 </AccordionContent>
               </AccordionItem>
